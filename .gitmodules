@@ -1,0 +1,3 @@
+[submodule "Repos/veilid"]
+	path = Repos/veilid
+	url = https://gitlab.com/tech_new/veilid
