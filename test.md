@@ -1,3 +1,4 @@
+```
 This project involves working with an academic at City St George's in
 the department of computer science. The academic will supervise and
 guide your work alongside being your consultant and marker.
@@ -41,7 +42,7 @@ Project title: Application Development Using the Veilid Application
 |                      |                                                 |
 |                      | - A SOCKS proxy                                 |
 |                      |                                                 |
-|                      | **Plan:** |
+|                      | **Plan:**                                       |
 |                      |                                                 |
 |                      | 1\. Learn the key concepts involved             |
 |                      |    including onion routing and distributed      |
