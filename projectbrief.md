@@ -1,3 +1,4 @@
+```
 This project involves working with an academic at City St George's in
 the department of computer science. The academic will supervise and
 guide your work alongside being your consultant and marker.
@@ -19,11 +20,11 @@ Contact details:
   -----------------------------------------------------------------------
 
 +----------------------+-----------------------------------------------+
-| Project description: | **Keywords:** networking, privacy, anonymity, |
+| Project description: | Keywords: networking, privacy, anonymity,     |
 |                      | peer-to-peer, distributed applications,       |
 |                      | anti-surveillance, cryptography               |
 |                      |                                               |
-|                      | **Description:** The Veilid framework (       |
+|                      | Description: The Veilid framework (           |
 |                      | <https://veilid.com/> ) is a recent developed |
 |                      | collection of protocols to build distributed, |
 |                      | private applications. It builds on the onion  |
@@ -46,26 +47,26 @@ Contact details:
 |                      |                                               |
 |                      | - A SOCKS proxy                               |
 |                      |                                               |
-|                      | **Plan:**                                     |
+|                      | Plan:                                         |
 |                      |                                               |
-|                      | 1.  1\. Learn the key concepts involved       |
+|                      |   1. Learn the key concepts involved          |
 |                      |     including onion routing and distributed   |
 |                      |     hash tables.                              |
 |                      |                                               |
-|                      |     2\. Set up a Veilid node and try out the  |
+|                      |     2. Set up a Veilid node and try out the   |
 |                      |     demo application.                         |
 |                      |                                               |
-|                      |     3\. Develop your own application!         |
+|                      |     3. Develop your own application!          |
 |                      |                                               |
-|                      | **Skills:** Knowledge of networking and       |
+|                      | Skills: Knowledge of networking and           |
 |                      | cryptography, software development on Linux,  |
 |                      | reasonable programming ability.               |
 +:=====================+:==============================================+
-| Ideal Project        | 1\. A network application that uses the       |
+| Ideal Project        | 1. A network application that uses the        |
 | Outcomes:            | Veilid Framework.                             |
 |                      |                                               |
-|                      | 2\. A demonstration of the application.       |
+|                      | 2. A demonstration of the application.        |
 +----------------------+-----------------------------------------------+
 | Additional           | Contact Martin for more information.          |
 | Information          |                                               |
-+----------------------+-----------------------------------------------+
++----------------------+-----------------------------------------------+```
