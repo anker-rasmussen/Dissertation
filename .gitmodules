@@ -1,3 +1,6 @@
 [submodule "Repos/veilid"]
 	path = Repos/veilid
 	url = https://gitlab.com/tech_new/veilid
+[submodule "Repos/veilidchat"]
+	path = Repos/veilidchat
+	url = https://gitlab.com/veilid/veilidchat
