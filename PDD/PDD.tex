@@ -1,0 +1,106 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{titling}
+
+\setstretch{1.25}
+\setlength{\parskip}{0.8em}
+\setlength{\parindent}{0pt}
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{1em}{}
+
+\pretitle{
+    \begin{center}
+        \vspace*{-3cm}
+    \includegraphics[width=0.35\textwidth]{UniLogo.png}\\[1.5cm]
+    \LARGE\bfseries
+}
+\posttitle{\par\end{center}\vskip 1cm}
+\title{Project Definition Document}
+\author{}
+\date{\today}
+\begin{document}
+
+\maketitle
+\vspace{2cm}
+
+\begin{center}
+\textbf{Project Title:} {Local-First Collaborative Text Editor using the Veilid Framework} \\[1cm]
+\textbf{Degree Programme:} {BSC Computer Science} \\[1cm]
+\textbf{Supervisor:} {Martin Nyx Brain} \\[1cm]
+\textbf{Category:} Academic Client Project \\[0.3cm]
+{\small \textbf{Subcategory:} Application Development} \\[1cm]
+
+\end{center}
+
+\newpage
+
+
+\section{Proposal}
+
+\subsection{Problem to be Solved}
+Current collaborative editors like Google Docs and Microsoft 365 rely on centralized 
+infrastructure to handle collaborative editing of documents. This centralized approach to
+storage and coordination introduces risks in three main fields: user privacy, data
+ownership, and availability. This project will explore how to enable secure, consistent,
+and private document sharing between peers can be accomplished using Veilid's peer-to-peer
+architecture and CRDT-based state synchronisation.
+
+
+\subsection{Project Objectives}
+\begin{itemize}[noitemsep]
+    \item Create 
+    \item Objective 2
+    \item Objective 3
+\end{itemize}
+
+\subsection{Project Beneficiaries}
+Identify who benefits from this project (users, researchers, organizations, etc.) and how they benefit.
+
+\subsection{Project Plan}
+Provide a high-level timeline of the project. You can use a list or table if preferred.
+
+\begin{itemize}[noitemsep]
+    \item Placeholder0
+    \item Placeholder1
+    \item Placeholder2
+    \item Placeholder3
+\end{itemize}
+
+\subsection{Risks Affecting the Project}
+Outline any technical, logistical, or ethical risks that may affect project success, and how you plan to mitigate them.
+
+\subsection{Legal, Social, Ethical and Professional Considerations}
+Discuss any relevant ethical or legal implications of your project (e.g., data privacy, bias, intellectual property, accessibility).
+
+\subsection{References}
+\begin{itemize}[noitemsep]
+    \item Author, A. (Year). \textit{Title of the paper}. Journal/Source.
+    \item Author, B. (Year). \textit{Title of another reference}.
+\end{itemize}
+
+\newpage
+\section{Research Ethics Checklist}
+Summarize any ethical considerations and indicate whether formal ethics approval is needed. If applicable, reference consent forms or procedures.
+
+\newpage
+\section{Client Information Sheet (External Client Projects Only)}
+Provide details about the client organization, contact person, and nature of collaboration.
+
+\newpage
+\section{Appendix: Use of Generative AI (if applicable)}
+If AI tools (e.g., ChatGPT, Copilot) were used in preparing this document or project materials, describe exactly how and to what extent they were used.
+
+\newpage
+\section{Appendix: Legal, Social, Ethical, and Professional Issues (LSEPI)}
+For Category 3 projects, provide a more detailed analysis of relevant LSEPI topics.
+
+\end{document}
