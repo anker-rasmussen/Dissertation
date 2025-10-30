@@ -70,3 +70,4 @@ Contact details:
 | Additional           | Contact Martin for more information.          |
 | Information          |                                               |
 +----------------------+-----------------------------------------------+
+//look into Sealed Bid Auction
