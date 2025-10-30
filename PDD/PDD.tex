@@ -6,6 +6,16 @@
 \usepackage{hyperref}
 \usepackage{graphicx}
 \usepackage{titling}
+\usepackage[backend=biber,
+  style=authoryear,
+  sorting=nyt,
+  maxcitenames=2,
+  maxbibnames=99,
+  uniquename=false
+]{biblatex}
+\addbibresource{dissertation-sources.bib}
+\DefineBibliographyExtras{english}{\let\finalandcomma=\empty}
+
 
 \setstretch{1.25}
 \setlength{\parskip}{0.8em}
@@ -30,10 +40,9 @@
 \begin{document}
 
 \maketitle
-\vspace{0.5cm}
 
 \begin{center}
-\textbf{Project Title:} {Local-First Collaborative Text Editor using the Veilid Framework} \\[1cm]
+\textbf {Project Title:} {Decentralized Peer-to-Peer SMPC Sealed-bid auction app over the Veilid framework} \\[1cm]
 \textbf{Degree Programme:} {BSc (Hons) Computer Science} \\[1cm]
 \textbf{Project Consultant:} {Martin Nyx Brain} \\[1cm]
 \textbf{By:}{Anker Rasmussen} \\[0.2cm]
@@ -49,18 +58,18 @@
 \section{Proposal}
 
 \subsection{Problem to be Solved}
-Current collaborative editors like Google Docs and Microsoft 365 rely on centralized 
-infrastructure to handle collaborative editing of documents. This centralized approach to
-storage and coordination introduces risks in three main fields: user privacy, data
-ownership, and availability. This project will explore how to enable secure, consistent,
-and private document sharing between peers can be accomplished using Veilid's peer-to-peer
-architecture and CRDT-based state synchronisation.
+Mainstream consumer marketplaces either use \emph{open}, incrementally visible bidding or no auctions at all, which undermines sealed-bid privacy and fairness. For example, eBay’s auction model exposes live bid progression (via proxy bidding), and the highest bidder at close wins \parencite{ebay_help_bidding}. Facebook Marketplace, by contrast, is a listing-based peer-to-peer venue with messaging and checkout links rather than a formal auction protocol \parencite{fb_marketplace_help}; reports highlight elevated scam risk and weak buyer protections in such ad-hoc workflows \parencite{wsj_fb_marketplace_scams}.
 
+Public blockchains add strong auditability but are susceptible to transaction ordering attacks (\emph{front-running}/MEV), which can leak or distort bids during submission and reveal phases \parencite{daian2020_flashboys2}. In sealed-bid contexts, cryptographic auction protocols exist to hide non-winning bids entirely \parencite{sako2000_hide_losers}, but deploying them without a trusted auctioneer requires secure multiparty computation (MPC). MPC has been shown to work in production for real markets (e.g., the Danish sugar-beet auction), where parties jointly compute winner and clearing price without revealing individual bids \parencite{bogetoft2009_mpc_live}. Mature MPC frameworks (e.g., MP-SPDZ built on SPDZ-family protocols) demonstrate practical performance across secret-sharing, HE, and garbled-circuit backends \parencite{mp-spdz,damgaard2012_spdz,evans2018_pragmatic_mpc}.
+
+This project addresses the absence of a \textbf{peer-to-peer sealed-bid marketplace} that (1) preserves bidder privacy by default, (2) mitigates front-running risk during submission, and (3) operates without a central auctioneer. It combines MPC for bid evaluation with a decentralized transport substrate (Veilid) for identity, routing, and availability. 
+
+My main objective for this project is to create a tech demo of an application running on top of the Veilid network, allowing users to list and sell items using Monero as the primary vehicle for transactions, executed at the completion of bid on the stagenet network (where the framework is identical to mainnet, but the tokens are valueless). My hope is that one day this tech demo can evolve into a fully fledged marketplace that protects the privacy of its users.
 
 \subsection{Project Objectives}
 \begin{itemize}[noitemsep]
-    \item Create 
-    \item Objective 2
+    \item The primary objective is to have an application (full frontend) running on top of the Veilid network that has listing and purchase capabilities, with text being unlocked upon successful win of bid.
+    \item Integrate MPC algorithm for sealed-bid capabilities, resulting bid victory allows for hash to unlock content of file, else file remains encrypted.
     \item Objective 3
 \end{itemize}
 
