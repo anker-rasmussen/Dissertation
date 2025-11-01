@@ -44,3 +44,5 @@ Can I walk back human participants for data collection? Yes - but plan.
 
 What about bringing some sort of cryptocurrency (testnet/stagenet) into the project? 
 Use stagenets to indicate it's monopoly money effectively. 
+
+How complex does my Problem to be Solved need to be? Should it be like an Abstract? 
