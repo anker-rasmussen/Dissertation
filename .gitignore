@@ -16,3 +16,8 @@
 *.snm
 PDD/*.run.xml
 PDD/*.bcf
+PDD/*.bbl-SAVE-ERROR
+PDD/*.bcf-SAVE-ERROR
+PDD/*.wc
+Dissertation.bcf-SAVE-ERROR
+Dissertation/Dissertation.bcf-SAVE-ERROR
