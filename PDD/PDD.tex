@@ -3,16 +3,18 @@
 \usepackage{setspace}
 \usepackage{titlesec}
 \usepackage{enumitem}
-\usepackage{hyperref}
+\usepackage[hidelinks]{hyperref}
 \usepackage{graphicx}
 \usepackage{titling}
-\usepackage[backend=biber,
-  style=authoryear,
-  sorting=nyt,
-  maxcitenames=2,
-  maxbibnames=99,
-  uniquename=false
+\usepackage[
+  backend=biber,
+  style=ieee,
+  sorting=none,
+  maxbibnames=99
 ]{biblatex}
+\immediate\write18{texcount -1 -sum \jobname.tex > \jobname.wc}
+\newcommand{\wordcount}{\input{\jobname.wc}}
+
 \addbibresource{dissertation-sources.bib}
 \DefineBibliographyExtras{english}{\let\finalandcomma=\empty}
 
@@ -49,7 +51,8 @@
 {\small \textbf{anker.rasmussen@city.ac.uk}} \\ [0.3cm]
 \textbf{Category:} Academic Client Project \\[0.3cm]
 {\small \textbf{Subcategory:} Application Development} \\[1cm]
-\textbf {Word count:}
+\textbf {Word count:}\wordcount\\[0.3cm]
+\textbf {Proprietary Interests:} None
 \end{center}
 
 \newpage
@@ -58,20 +61,31 @@
 \section{Proposal}
 
 \subsection{Problem to be Solved}
-Mainstream consumer marketplaces either use \emph{open}, incrementally visible bidding or no auctions at all, which undermines sealed-bid privacy and fairness. For example, eBay’s auction model exposes live bid progression (via proxy bidding), and the highest bidder at close wins \parencite{ebay_help_bidding}. Facebook Marketplace, by contrast, is a listing-based peer-to-peer venue with messaging and checkout links rather than a formal auction protocol \parencite{fb_marketplace_help}; reports highlight elevated scam risk and weak buyer protections in such ad-hoc workflows \parencite{wsj_fb_marketplace_scams}.
+Popular online consumer marketplaces either use \emph{open, incrementally visible bidding} or \emph{no auctions at all}, which undermines sealed-bid privacy and fairness. eBay’s proxy-bidding model reveals live bid progression and awards the item to the highest bid at close \parencite{ebay_help_bidding}. Facebook Marketplace, by contrast, is a listing-plus-messaging workflow rather than a formal auction protocol, with weak buyer protections \parencite{fb_marketplace_help}. Public blockchains add strong auditability but invite transaction ordering attacks (front-running/MEV) that can leak or distort bids during submission and reveal phases \parencite{daian2019_flashboys2}. Cryptographic sealed-bid auctions can hide non-winning bids entirely; deploying them without a trusted auctioneer requires secure multiparty computation (MPC). MPC has been demonstrated in production (e.g., the Danish sugar-beet auction) and modern frameworks such as MP-SPDZ show practical performance across secret-sharing, HE, and garbled-circuit backends \parencite{bogetoft2009_mpc_live,mp-spdz,damgaard2012_spdz,evans2018_pragmatic_mpc,sako2000_hide_losers}.
 
-Public blockchains add strong auditability but are susceptible to transaction ordering attacks (\emph{front-running}/MEV), which can leak or distort bids during submission and reveal phases \parencite{daian2020_flashboys2}. In sealed-bid contexts, cryptographic auction protocols exist to hide non-winning bids entirely \parencite{sako2000_hide_losers}, but deploying them without a trusted auctioneer requires secure multiparty computation (MPC). MPC has been shown to work in production for real markets (e.g., the Danish sugar-beet auction), where parties jointly compute winner and clearing price without revealing individual bids \parencite{bogetoft2009_mpc_live}. Mature MPC frameworks (e.g., MP-SPDZ built on SPDZ-family protocols) demonstrate practical performance across secret-sharing, HE, and garbled-circuit backends \parencite{mp-spdz,damgaard2012_spdz,evans2018_pragmatic_mpc}.
+\subsection*{What is Veilid?}
+\emph{Veilid} is a privacy-first, open-source, peer-to-peer application framework. Each app embeds a node into a global overlay where peers are equal (no privileged relays), connections are end-to-end encrypted, and private routing obscures network locations. After a brief bootstrap, apps communicate directly over transports such as UDP/TCP/QUIC/Web and exchange data via a secure DHT designed for mobile and desktop \parencite{veilid_developer_book}. In short: an application overlay providing addressable, encrypted endpoints (public-key identities) and metadata-minimizing communication, independent of any blockchain.
 
-This project addresses the absence of a \textbf{peer-to-peer sealed-bid marketplace} that (1) preserves bidder privacy by default, (2) mitigates front-running risk during submission, and (3) operates without a central auctioneer. It combines MPC for bid evaluation with a decentralized transport substrate (Veilid) for identity, routing, and availability. 
+\subsection*{Why Veilid for this marketplace?}
+The marketplace requires private identities, censorship-resistant transport, and NAT-friendly reachability without a trusted coordinator. Veilid offers: (i) addressable, encrypted endpoints keyed by public keys (not IPs), (ii) a secure DHT for publishing listings and locating MPC parties, and (iii) obfuscated routing that reduces metadata leakage during bid submission and MPC setup \parencite{veilid_developer_book}. Because Veilid is blockchain-agnostic, settlement can occur off-overlay (Monero stagenet) while \emph{coordination} and \emph{communication} remain private and decentralized—aligning with the goals of sealed-bid privacy, front-running resistance, and auctioneerless operation \parencite{cryptonote2013_whitepaper}.
 
-My main objective for this project is to create a tech demo of an application running on top of the Veilid network, allowing users to list and sell items using Monero as the primary vehicle for transactions, executed at the completion of bid on the stagenet network (where the framework is identical to mainnet, but the tokens are valueless). My hope is that one day this tech demo can evolve into a fully fledged marketplace that protects the privacy of its users.
+\subsection*{Project Goal}
+Build a \textbf{peer-to-peer sealed-bid marketplace} that (1) preserves bidder privacy by default, (2) mitigates front-running risk during bid submission, and (3) operates \emph{without a central auctioneer}. The prototype combines MPC for winner/price computation with \emph{Veilid} for identity, routing, and availability \parencite{veilid_developer_book}. Payments clear on \emph{Monero stagenet} after the MPC outcome is published—exercising the full flow without handling real funds—while inheriting the confidential-transaction model and unlinkability properties from the CryptoNote design \parencite{cryptonote2013_whitepaper}.
 
 \subsection{Project Objectives}
 \begin{itemize}[noitemsep]
-    \item The primary objective is to have an application (full frontend) running on top of the Veilid network that has listing and purchase capabilities, with text being unlocked upon successful win of bid.
-    \item Integrate MPC algorithm for sealed-bid capabilities, resulting bid victory allows for hash to unlock content of file, else file remains encrypted.
-    \item Objective 3
+  \item \textbf{Main objective.} This project shall deliver a working peer-to-peer marketplace application on the Veilid network that exclusively supports sealed-bid listings and private content unlock for the winning bidder.
+
+  \item \textbf{Testable objectives.}
+    \begin{itemize}[noitemsep]
+      \item \emph{Listings and purchases.} Implement end-to-end flows: create listing → submit bid → determine winner → complete purchase. \textbf{Test:} demo run and automated integration tests covering success/edge cases (invalid bid, tie, timeout).
+      \item \emph{Sealed-bid via MPC.} Integrate a multi-party computation protocol to select the highest valid bid without revealing non-winning bids. \textbf{Test:} unit tests with mocked parties; property tests showing loser-bid privacy; reproducible benchmark for N bidders.
+      \item \emph{Encrypted content unlock.} Ensure listing content remains encrypted; only the winner obtains the decryption key/hash after settlement. \textbf{Test:} verify ciphertext remains inaccessible to non-winners; successful decrypt by winner; tamper tests.
+      \item \emph{Settlement on Monero Stagenet.} Simulate network init, funded wallets, and programmatic “real” transactions for deposits/escrow/release. \textbf{Test:} scripted stagenet transactions with confirmations; failure/reorg handling.
+    \end{itemize}
 \end{itemize}
+
+
 
 \subsection{Project Beneficiaries}
 Identify who benefits from this project (users, researchers, organizations, etc.) and how they benefit.
@@ -93,10 +107,7 @@ Outline any technical, logistical, or ethical risks that may affect project succ
 Discuss any relevant ethical or legal implications of your project (e.g., data privacy, bias, intellectual property, accessibility).
 
 \subsection{References}
-\begin{itemize}[noitemsep]
-    \item Author, A. (Year). \textit{Title of the paper}. Journal/Source.
-    \item Author, B. (Year). \textit{Title of another reference}.
-\end{itemize}
+\printbibliography
 
 \newpage
 \section{Research Ethics Checklist}
