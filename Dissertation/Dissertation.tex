@@ -1,0 +1,138 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{latexsym}
+\DeclareUnicodeCharacter{2010}{-}% support older LaTeX versions
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{booktabs}
+\usepackage{tabto}
+\usepackage{graphics}
+\usepackage{array}
+\usepackage{titlesec}
+\usepackage{color,soul}
+\usepackage[T1]{fontenc}
+\usepackage[australian]{babel}
+\usepackage[none]{hyphenat}         % Woordafbreking
+\usepackage[left=2.50cm, right=2.50cm, top=3.00cm, bottom=3.00cm]{geometry} % Marges
+\usepackage{parskip}                % Normale paragrafen
+\usepackage[hidelinks]{hyperref}    % Klikbare verwijzingen                 
+\usepackage{fancyhdr}               % Fancy headers
+\usepackage{lastpage}               % Paginanummers in footer
+\usepackage[english]{isodate}       % Normale datums
+\usepackage{graphicx,ifthen}               % Plaatjes
+\usepackage{float}                  % Whatever floats your goat
+\usepackage{textgreek}              % What's in a name
+\usepackage{mathtools}              % Gekke formules bouwe
+\usepackage{doi}                    % DOIs linken
+\usepackage{textcomp,gensymb}       % Symbols
+\usepackage[nottoc]{tocbibind}      % References in Table of contents
+\renewcommand*\rmdefault{ppl}       % Palatino Linotype
+\renewcommand*\ttdefault{pcr}       % Courier monospace font
+\frenchspacing                      % Normale spacing
+\sloppy                             % Woordafbreking
+\usepackage{listings}
+\usepackage{color} %red, green, blue, yellow, cyan, magenta, black, white
+\definecolor{mygreen}{RGB}{28,172,0} % color values Red, Green, Blue
+\definecolor{mylilas}{RGB}{170,55,241}
+\graphicspath{ {Figures/} } 
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage{eurosym}
+\usepackage[autostyle]{csquotes}
+\usepackage{lscape}
+%\usepackage[version=4]{mhchem}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[sorting=none,block=ragged,sortcites,giveninits,maxnames=4,backend=biber,dateabbrev=false,maxbibnames=99]{biblatex} 
+\usepackage{csquotes}
+\usepackage[normalem]{ulem}
+\useunder{\uline}{\ul}{}
+\numberwithin{equation}{section} 
+\usepackage{chngcntr}
+\counterwithin{figure}{section}
+\counterwithin{table}{section}
+%\newcommand*{\fullref}[1]{\hyperref[{#1}]{\autoref*{#1} \nameref*{#1}}}
+\usepackage{tikz}
+\usepackage{url}
+\usepackage{multirow}
+\usepackage{tabulary}
+\usepackage[titletoc,toc,page]{appendix}
+\usepackage{subfig}
+\usepackage{mdwlist}
+\usepackage{pdfpages}
+\urlstyle{same}
+\titlespacing{\subsection}{0pt}{\parskip}{-\parskip}
+\titlespacing{\subsubsection}{0pt}{\parskip}{-\parskip}
+\captionsetup[table]{aboveskip=1pt,belowskip=6 pt}
+
+\newcommand*{\BeginNoToc}{%
+  \addtocontents{toc}{%
+    \edef\protect\SavedTocDepth{\protect\the\protect\value{tocdepth}}%
+  }%
+  \addtocontents{toc}{%
+    \protect\setcounter{tocdepth}{-10}%
+  }%
+}
+\newcommand*{\EndNoToc}{%
+  \addtocontents{toc}{%
+    \protect\setcounter{tocdepth}{\protect\SavedTocDepth}%
+  }%
+}
+
+\widowpenalties 1 10000	
+\raggedbottom
+%Bibliography
+\addbibresource{main.bib}
+\setlength{\bibitemsep}{0.5em}
+
+\begin{document}
+
+\pagenumbering{gobble}
+%\include{Titlepage}
+\include{TitlepageUT}
+
+\newpage
+\include{Abstract}
+\newpage
+\pagenumbering{roman}
+\BeginNoToc
+\listoffigures
+\listoftables
+\include{Abbreviations}
+\EndNoToc
+\newpage
+\tableofcontents
+\include{Symbols}
+
+\newpage
+\pagenumbering{arabic}
+\include{Introduction}
+\include{Theory}
+\include{Modelling}
+\include{Exp}
+\include{Results}
+\include{Conclusion}
+
+
+\begin{otherlanguage}{australian}
+\printbibliography
+\end{otherlanguage}
+
+
+\let\svaddcontentsline\addcontentsline
+\renewcommand\addcontentsline[3]{%
+  \ifthenelse{\equal{#1}{lof}}{}%
+  {\ifthenelse{\equal{#1}{lot}}{}{\svaddcontentsline{#1}{#2}{#3}}}}
+\addtocontents{toc}{\protect\setcounter{tocdepth}{2}} %remove tables and figures from list of tables and figures
+
+\appendixtitleon
+\appendixtitletocon
+\appendix
+\makeatletter
+\def\@seccntformat#1{\csname Pref@#1\endcsname \csname the#1\endcsname\quad}
+\def\Pref@section{Appendix~}
+\makeatother %include appendix pre-fix
+\include{Appendix/AppendixA}
+\include{Appendix/AppendixB}
+\include{Appendix/AppendixC}
+\end{document}
+
