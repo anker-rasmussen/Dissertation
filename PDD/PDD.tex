@@ -2,23 +2,44 @@
 \usepackage[margin=2.5cm]{geometry}
 \usepackage{setspace}
 \usepackage{titlesec}
+\usepackage{tabularx}
+\usepackage{ragged2e}
+\usepackage{booktabs}
 \usepackage{enumitem}
+\usepackage{pdfpages}
 \usepackage[hidelinks]{hyperref}
 \usepackage{graphicx}
 \usepackage{titling}
+\usepackage{catchfile}
+\usepackage{xassoccnt}
+\usepackage{ltablex}
+\keepXColumns
+\usepackage[utf8]{inputenc}
+\usepackage{newunicodechar}
+\newunicodechar{↔}{\(\leftrightarrow\)}
+\usepackage{siunitx,xfp}
+\usepackage{catchfile}
+\usepackage{bookmark}
+\newcolumntype{R}{>{\raggedright\arraybackslash}p{0.3\linewidth}} 
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}               
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.15}
+\newcommand{\quickwordcount}[1]{%
+  \CatchFileEdef\MyWordcount{|"texcount -1 -sum -merge #1.tex"}{\endlinechar=-1 }%
+  \MyWordcount
+}
 \usepackage[
   backend=biber,
   style=ieee,
   sorting=none,
   maxbibnames=99
 ]{biblatex}
-\immediate\write18{texcount -1 -sum \jobname.tex > \jobname.wc}
-\newcommand{\wordcount}{\input{\jobname.wc}}
-
 \addbibresource{dissertation-sources.bib}
-\DefineBibliographyExtras{english}{\let\finalandcomma=\empty}
-
-
+\usepackage{xassoccnt}
+\NewTotalDocumentCounter{totalfigures}
+\NewTotalDocumentCounter{totaltables}
+\DeclareAssociatedCounters{figure}{totalfigures}
+\DeclareAssociatedCounters{table}{totaltables}
 \setstretch{1.25}
 \setlength{\parskip}{0.8em}
 \setlength{\parindent}{0pt}
@@ -44,85 +65,192 @@
 \maketitle
 
 \begin{center}
-\textbf {Project Title:} {Decentralized Peer-to-Peer SMPC Sealed-bid auction app over the Veilid framework} \\[1cm]
+\textbf {Project Title:} {Decentralized Peer-to-Peer SMPC Sealed-Bid Auction App over the Veilid framework} \\[1cm]
 \textbf{Degree Programme:} {BSc (Hons) Computer Science} \\[1cm]
 \textbf{Project Consultant:} {Martin Nyx Brain} \\[1cm]
 \textbf{By:}{Anker Rasmussen} \\[0.2cm]
 {\small \textbf{anker.rasmussen@city.ac.uk}} \\ [0.3cm]
 \textbf{Category:} Academic Client Project \\[0.3cm]
 {\small \textbf{Subcategory:} Application Development} \\[1cm]
-\textbf {Word count:}\wordcount\\[0.3cm]
+\textbf {Word count:}\quickwordcount{\jobname}\\[0.3cm]
 \textbf {Proprietary Interests:} None
 \end{center}
 
 \newpage
 
 
+\pdfbookmark[1]{Contents}{toc} 
+\setcounter{tocdepth}{2}      
+\setcounter{secnumdepth}{2}    
+\tableofcontents
+\clearpage
 \section{Proposal}
 
 \subsection{Problem to be Solved}
-Popular online consumer marketplaces either use \emph{open, incrementally visible bidding} or \emph{no auctions at all}, which undermines sealed-bid privacy and fairness. eBay’s proxy-bidding model reveals live bid progression and awards the item to the highest bid at close \parencite{ebay_help_bidding}. Facebook Marketplace, by contrast, is a listing-plus-messaging workflow rather than a formal auction protocol, with weak buyer protections \parencite{fb_marketplace_help}. Public blockchains add strong auditability but invite transaction ordering attacks (front-running/MEV) that can leak or distort bids during submission and reveal phases \parencite{daian2019_flashboys2}. Cryptographic sealed-bid auctions can hide non-winning bids entirely; deploying them without a trusted auctioneer requires secure multiparty computation (MPC). MPC has been demonstrated in production (e.g., the Danish sugar-beet auction) and modern frameworks such as MP-SPDZ show practical performance across secret-sharing, HE, and garbled-circuit backends \parencite{bogetoft2009_mpc_live,mp-spdz,damgaard2012_spdz,evans2018_pragmatic_mpc,sako2000_hide_losers}.
+Popular online consumer marketplaces either use \emph{open, incrementally visible bidding} or \emph{no auctions at all}, which undermines sealed-bid privacy and fairness. eBay’s proxy-bidding model reveals live bid progression and awards the item to the highest bid at close \parencite{ebay_help_bidding}. Facebook Marketplace, by contrast, is a listing-plus-messaging workflow rather than a formal auction protocol, with weak buyer protections \parencite{fb_marketplace_help}. Public blockchain auctions add strong auditability but invite transaction ordering attacks (front-running/MEV) that can leak or distort bids during submission and reveal phases \parencite{daian2019_flashboys2}. Cryptographic sealed-bid auctions can hide non-winning bids entirely. Deploying a protocol without a trusted auctioneer requires secure multiparty computation (MPC). MPC has been demonstrated in production (e.g., the Danish sugar-beet auction) and modern frameworks such as MP-SPDZ show practical performance across secret-sharing, HE, and garbled-circuit backends \parencite{bogetoft2009_mpc_live,mp-spdz,damgaard2012_spdz,evans2018_pragmatic_mpc,sako2000_hide_losers}.
 
 \subsection*{What is Veilid?}
-\emph{Veilid} is a privacy-first, open-source, peer-to-peer application framework. Each app embeds a node into a global overlay where peers are equal (no privileged relays), connections are end-to-end encrypted, and private routing obscures network locations. After a brief bootstrap, apps communicate directly over transports such as UDP/TCP/QUIC/Web and exchange data via a secure DHT designed for mobile and desktop \parencite{veilid_developer_book}. In short: an application overlay providing addressable, encrypted endpoints (public-key identities) and metadata-minimizing communication, independent of any blockchain.
+\emph{Veilid} is a privacy-first, open-source, peer-to-peer application framework. Each app embeds a node into a global overlay where peers are equal (no privileged relays), connections are end-to-end encrypted, and private routing obscures network locations. After a brief bootstrap, apps communicate directly over transports such as UDP/TCP/QUIC/Web and exchange data via a secure DHT designed for mobile and desktop \parencite{veilid_developer_book}. Veilid provides addressable, encrypted endpoints (public-key identities) and metadata-minimized communication, independent of any blockchain.
 
 \subsection*{Why Veilid for this marketplace?}
-The marketplace requires private identities, censorship-resistant transport, and NAT-friendly reachability without a trusted coordinator. Veilid offers: (i) addressable, encrypted endpoints keyed by public keys (not IPs), (ii) a secure DHT for publishing listings and locating MPC parties, and (iii) obfuscated routing that reduces metadata leakage during bid submission and MPC setup \parencite{veilid_developer_book}. Because Veilid is blockchain-agnostic, settlement can occur off-overlay (Monero stagenet) while \emph{coordination} and \emph{communication} remain private and decentralized—aligning with the goals of sealed-bid privacy, front-running resistance, and auctioneerless operation \parencite{cryptonote2013_whitepaper}.
+In line with the project brief to \emph{build an application using the Veilid framework}, this marketplace needs private identities, censorship-resistant transport, and NAT-friendly reachability without a trusted coordinator. Veilid provides exactly these: (i) addressable, encrypted endpoints keyed by public keys rather than IPs, (ii) a secure DHT for publishing listings and discovering MPC parties, and (iii) obfuscated routing that limits metadata exposure during bid submission and MPC setup \parencite{veilid_developer_book}. Because Veilid is blockchain-agnostic, settlement can occur off-overlay (e.g., Monero testnet) while \emph{coordination} and \emph{communication} remain private and decentralized. \parencite{cryptonote2013_whitepaper}.
+
 
 \subsection*{Project Goal}
-Build a \textbf{peer-to-peer sealed-bid marketplace} that (1) preserves bidder privacy by default, (2) mitigates front-running risk during bid submission, and (3) operates \emph{without a central auctioneer}. The prototype combines MPC for winner/price computation with \emph{Veilid} for identity, routing, and availability \parencite{veilid_developer_book}. Payments clear on \emph{Monero stagenet} after the MPC outcome is published—exercising the full flow without handling real funds—while inheriting the confidential-transaction model and unlinkability properties from the CryptoNote design \parencite{cryptonote2013_whitepaper}.
+Build a \textbf{peer-to-peer sealed-bid marketplace} that (1) preserves bidder privacy by default, (2) mitigates front-running risk during bid submission, and (3) operates \emph{without a central auctioneer}. The prototype combines MPC for winner/price computation with \emph{Veilid} for identity, routing, and availability \parencite{veilid_developer_book}. Payments clear on \emph{Monero testnet} after the MPC outcome is published. This demonstrates the full flow without handling real funds while inheriting the confidential-transaction model and unlinkability properties from the CryptoNote design (Monero precursor) \parencite{cryptonote2013_whitepaper}.
 
 \subsection{Project Objectives}
 \begin{itemize}[noitemsep]
   \item \textbf{Main objective.} This project shall deliver a working peer-to-peer marketplace application on the Veilid network that exclusively supports sealed-bid listings and private content unlock for the winning bidder.
 
-  \item \textbf{Testable objectives.}
+  \item \textbf{Testable sub-objectives.}
     \begin{itemize}[noitemsep]
-      \item \emph{Listings and purchases.} Implement end-to-end flows: create listing → submit bid → determine winner → complete purchase. \textbf{Test:} demo run and automated integration tests covering success/edge cases (invalid bid, tie, timeout).
-      \item \emph{Sealed-bid via MPC.} Integrate a multi-party computation protocol to select the highest valid bid without revealing non-winning bids. \textbf{Test:} unit tests with mocked parties; property tests showing loser-bid privacy; reproducible benchmark for N bidders.
-      \item \emph{Encrypted content unlock.} Ensure listing content remains encrypted; only the winner obtains the decryption key/hash after settlement. \textbf{Test:} verify ciphertext remains inaccessible to non-winners; successful decrypt by winner; tamper tests.
-      \item \emph{Settlement on Monero Stagenet.} Simulate network init, funded wallets, and programmatic “real” transactions for deposits/escrow/release. \textbf{Test:} scripted stagenet transactions with confirmations; failure/reorg handling.
+      \item \emph{Listings and purchases.}\\ Implement end-to-end flows: create listing → submit bid → determine winner → complete purchase.
+       \\\textbf{Test:} demo run and automated integration tests covering success/edge cases (invalid bid, tie, timeout).
+      \item \emph{Sealed-bid via MPC.}\\ Integrate a multi-party computation protocol to select the highest valid bid without revealing non-winning bids. \\\textbf{Test:} unit tests with mocked parties; property tests showing loser-bid privacy; reproducible benchmark for N bidders.
+      \item \emph{MPC-gated decryption.}\\
+      Ideally: Bind winner selection to content access: the MPC that selects the highest valid bid also releases a winner-only decryption capability for the listing ($K$ via 1-out-of-n OT(Oblivious Transfer)) only if settlement is confirmed on testnet.\\
+      \textbf{Test:} unit tests showing that non-winners cannot recover $K$; integration test with mocked \texttt{paid}=0/1; testnet demo where confirmation flips release; property tests for loser-bid privacy.
+      \item \emph{Settlement on Monero Testnet.}\\ Simulate network init, fund wallets, and programmatic “real” transactions for deposits/escrow/release. \\\textbf{Test:} scripted testnet transactions with confirmations; failure handling.
     \end{itemize}
 \end{itemize}
 
 
 
 \subsection{Project Beneficiaries}
-Identify who benefits from this project (users, researchers, organizations, etc.) and how they benefit.
-
-\subsection{Project Plan}
-Provide a high-level timeline of the project. You can use a list or table if preferred.
-
 \begin{itemize}[noitemsep]
-    \item Placeholder0
-    \item Placeholder1
-    \item Placeholder2
-    \item Placeholder3
+  \item \textbf{Project supervisor:} 
+  Gain a proof-of-concept application that utilizes Veilid’s framework (keyed identities, secure DHT, obfuscated routing) with a non-toy use case. Deliverables (repo and demo video, alongside shell scripts) support future supervision of similar projects.
+  \item \textbf{Veilid development team/Veilid Community:}
+  A real world application that demonstrates capabilities of Veilid when integrated with other academic projects. Potential upstream bugfixes if warranted.
+  \item \textbf{Marketplace users - research oriented (prototype).}
+  Sellers get fairer price discovery without leaking losing bids; bidders gain privacy and reduced front-running risk. In real-world deployments, at-risk users (e.g., in high-censorship environments) could benefit from metadata-minimising coordination.
+  \item \textbf{End users in the future.}
+  A metadata-minimising, sealed-bid coordination layer could be adapted for \emph{safer} exchange of sensitive information (e.g., purchasing or rewarding data disclosures) where overt communication is filtered or surveilled. 
 \end{itemize}
 
-\subsection{Risks Affecting the Project}
-Outline any technical, logistical, or ethical risks that may affect project success, and how you plan to mitigate them.
+\subsection{Project Plan}
+\begin{itemize}[noitemsep]
+  \item \textbf{Foundation (Nov-Dec 2025): Understand \& set up Veilid. Digest current literature}
+    \begin{itemize}[noitemsep]
+      \item Read Veilid APIs; pull core code segments from \emph{veilidchat}.
+      \item Create and ready a platform agnostic development environment with scripts to boot local Veilid nodes (to aid my cross-platform development - x86 Linux/MacOS ARM).
+      \item Begin development of webapp, light tests to see dev env works before implementing any of the features to be delivered. Stack: C++ to WebAssembly with a TypeScript UI. 
+    \end{itemize}
+
+  \item \textbf{Milestone 1 (mid Jan–Feb 2026): Listings \& bids over Veilid}
+    \begin{itemize}[noitemsep]
+      \item Listing publish/discovery over secure DHT; private bid submission path.
+      \item Mocked MPC winner; basic content encryption at listing; happy-path E2E test.
+      \item Spool up private Monero testnet and understand integration with Veilid. 
+      \item Update Monero testnet script \& modify to fit usecase. Integrate with deployment script of dev network.
+    \end{itemize}
+
+  \item \textbf{Milestone 2 (late Feb–Mar 2026): MPC \& testnet}
+    \begin{itemize}[noitemsep]
+      \item Integrate real MPC (MP-SPDZ) and test happy path.
+      \item Fully integrate Monero testnet scripts. Implement Winner-only decrypt on confirmation.
+      \item E2E demo with simple implementation of MP-SPDZ + testnet.
+    \end{itemize}
+
+  \item \textbf{Milestone 3 (late Mar 2026): Fully integrated MPC in Decryption}
+    \begin{itemize}[noitemsep]
+      \item (Attempt to) fully integrate MPC to the decryption algorithm.
+      \item Make test scripts/infrastructure spool up for project demo (dockerized nodes on one device). 
+    \end{itemize}
+    
+  \item \textbf{Deliverables (Apr 2026): Package \& submit}
+    \begin{itemize}[noitemsep]
+      \item Wrap up writing dissertation 
+      \item Submit final report \& demo video.
+    \end{itemize}
+\end{itemize}\subsection{Risk Matrix (Probability–Severity–Mitigation)}
+\textbf{Legend:} L = Low,\; M = Medium,\; H = High.
+
+\begin{longtable}{>{\RaggedRight\arraybackslash}p{0.30\linewidth} c c >{\RaggedRight\arraybackslash}p{0.58\linewidth}}
+\toprule
+\textbf{Risk} & \textbf{Prob.} & \textbf{Sev.} & \textbf{Mitigation} \\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{Risk} & \textbf{Prob.} & \textbf{Sev.} & \textbf{Mitigation} \\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{4}{r}{\small\itshape Continued on next page} \\
+\midrule
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+Veilid API or reusing code from \texttt{veilidchat} is harder than expected
+  & M & H & Build a small wrapper with four actions: publish, find, send, receive. 
+  Start by running \texttt{veilidchat} as a separate helper and talk to it with 
+  simple text messages. If the direct API later works, replace the helper. 
+  Write clear build steps and ensure code is commented and documented to reduce code entropy (loss of context). \\
+
+Understanding MPC and integrating MP--SPDZ takes longer than planned
+  & M & H & Follow a short learning plan: run the MP--SPDZ tutorial and a simple 
+  max-of-\(N\) example; stick to one fixed version. Treat MPC as a small 
+  command-line tool with JSON in/out so the app can call it easily. Run all parties 
+  locally first, before implementing dockerised build scripts. \\
+
+Integrating Veilid–MPC–Monero (HTTP/JSON)
+  & M & H & Standardise on HTTP+JSON: use Monero’s native JSON-RPC; expose MPC as a localhost service with a minimal OpenAPI/JSON-Schema-defined surface. Generate clients, add contract tests before E2E, enforce timeouts/retries and idempotent ops. Keep MPC/Monero as separate processes. \\
+
+Containerisation \& multi-arch builds (Docker/Compose)
+  & M & H & Build small images from fixed base versions. Use plain HTTP/JSON between services so they connect cleanly. Start everything with a single Compose file (Veilid app, MPC sidecar, Monero sidecar). Keep chain data in named volumes. To reduce surprises, target one platform for the demo (64-bit Linux) and have CI build and run the images throughout development. Add health checks and restart policies, and run as a non-root user with secrets loaded from a .env file. \\
+
+P2P connectivity on eduroam
+  & M & M & Dockerise apps on same-LAN with docker multi-node; 
+  keep a pre-recorded run with logs \& video for assessment. \\
+
+Toolchain/portability (macOS vs Linux, dependencies)
+  & M & M & Containerised builds with fixed minimal versions; CI on x86\_64 Linux, avoiding
+  platform-specific flags. reproducible build script for different architectures. \\
+
+Hardware failure / data loss
+  & L & H & Keep dissertation sourcefiles in \texttt{.tex} within Git; push \& pull frequently.
+  Keep remote backups for code in GitHub \& GitLab. Maximum loss will be minimal \\
+\end{longtable}
+
 
 \subsection{Legal, Social, Ethical and Professional Considerations}
-Discuss any relevant ethical or legal implications of your project (e.g., data privacy, bias, intellectual property, accessibility).
+
+\textbf{Project category (per handbook 4.5.7):} Category 1 prototype not intended
+for distribution. Operation is confined to a local Veilid dev overlay and Monero
+testnet. No mainnet, no PII, and no real funds.
+
+\textbf{Scope.} Proof-of-concept only; runs on testnet for Monero, but runs on a localized Veilid dev environment.
+
+
+\textbf{Statement on illicit uses.} I explicitly condemn any attempt to adapt this research for illicit trade, exploitation, or other illegal activity. The work is motivated by technical research questions (privacy-preserving auction protocols, MPC integration, and overlay networking) rather than any intent to facilitate wrongdoing. All design, testing and evaluation are performed within controlled, local test environments to prevent misuse.
+
+\textbf{Principal risk (dual-use).} A private marketplace design could in principle be repurposed to facilitate illicit exchange if deployed without appropriate safeguards.
+
+\newpage
+\textbf{Mitigations to be implemented in this prototype.}
+
+\begin{itemize}[noitemsep]
+  \item No mainnet support; localized test peers (same LAN); public bootstrap disabled (dev veilid network).
+  \item No custody of real funds, testnet; payment “confirmations” exist only on Monero's testnet, and wallets are created/destroyed with the run script.
+\end{itemize}
+
+\textbf{Legal (licensing).} Project is released under \textbf{MPL-2.0} (file-level copyleft). Veilid already exists under \textbf{MPL-2.0}. any modified Veilid files are published under MPL as required. No copyleft extends to independent project files beyond their chosen license. (No mainnet use; no PII.)
+
+
+\textbf{Professional conduct.} No human participants.
+
+\textbf{Residual risk and fallback.} Code could be forked and modified; reduce by omitting deployment scripts on live Veilid + live Monero. If further legal/ethical concerns arise, disable network capabilities and run on a local area network.
+
 
 \subsection{References}
 \printbibliography
 
 \newpage
-\section{Research Ethics Checklist}
-Summarize any ethical considerations and indicate whether formal ethics approval is needed. If applicable, reference consent forms or procedures.
-
-\newpage
-\section{Client Information Sheet (External Client Projects Only)}
-Provide details about the client organization, contact person, and nature of collaboration.
-
-\newpage
-\section{Appendix: Use of Generative AI (if applicable)}
-If AI tools (e.g., ChatGPT, Copilot) were used in preparing this document or project materials, describe exactly how and to what extent they were used.
-
-\newpage
-\section{Appendix: Legal, Social, Ethical, and Professional Issues (LSEPI)}
-For Category 3 projects, provide a more detailed analysis of relevant LSEPI topics.
+\includepdf[pages={1-2}]{EthicsForm.pdf}
 
 \end{document}
