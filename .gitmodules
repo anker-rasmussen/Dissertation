@@ -4,3 +4,6 @@
 [submodule "Repos/veilidchat"]
 	path = Repos/veilidchat
 	url = https://gitlab.com/veilid/veilidchat
+[submodule "Repos/dissertationapp"]
+	path = Repos/dissertationapp
+	url = https://github.com/anker-rasmussen/dissertationapp
