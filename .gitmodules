@@ -7,3 +7,6 @@
 [submodule "Repos/dissertationapp"]
 	path = Repos/dissertationapp
 	url = https://github.com/anker-rasmussen/dissertationapp
+[submodule "Repos/MP-SPDZ"]
+	path = Repos/MP-SPDZ
+	url = https://github.com/data61/MP-SPDZ.git
