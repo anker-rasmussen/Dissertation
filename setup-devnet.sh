@@ -112,31 +112,7 @@ build_ipspoof() {
 
 build_mpspdz() {
     header "Building MP-SPDZ"
-
-    cd "$MP_SPDZ_DIR"
-
-    # Check if already built
-    if [ -f "replicated-ring-party.x" ]; then
-        log_success "MP-SPDZ already built (replicated-ring-party.x exists)"
-    else
-        log_info "Building MP-SPDZ (this may take a while)..."
-        make -j$(nproc) replicated-ring-party.x
-        log_success "MP-SPDZ built successfully"
-    fi
-
-    # Setup SSL certificates for 3 parties
-    if [ -f "Player-Data/P0.pem" ] && [ -f "Player-Data/P1.pem" ] && [ -f "Player-Data/P2.pem" ]; then
-        log_success "SSL certificates already exist for 3 parties"
-    else
-        log_info "Generating SSL certificates for 3 parties..."
-        ./Scripts/setup-ssl.sh 3
-        log_success "SSL certificates generated"
-    fi
-
-    # Compile auction program for 3 parties
-    log_info "Compiling auction_n program for 3 parties..."
-    ./compile.py -R 64 auction_n -- 3
-    log_success "auction_n-3 compiled"
+    "$SCRIPT_DIR/setup-mpspdz.sh" --mp-spdz-dir "$MP_SPDZ_DIR"
 }
 
 build_market() {
