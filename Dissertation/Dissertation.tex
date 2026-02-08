@@ -12,7 +12,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[australian]{babel}
 \usepackage[none]{hyphenat}         % Woordafbreking
-\usepackage[left=2.50cm, right=2.50cm, top=3.00cm, bottom=3.00cm]{geometry} % Marges
+\usepackage[left=2.50cm, right=2.60cm, top=3.00cm, bottom=3.00cm]{geometry} % Marges
 \usepackage{parskip}                % Normale paragrafen
 \usepackage[hidelinks]{hyperref}    % Klikbare verwijzingen                 
 \usepackage{fancyhdr}               % Fancy headers
@@ -60,8 +60,8 @@
 \usepackage{mdwlist}
 \usepackage{pdfpages}
 \urlstyle{same}
-\titlespacing{\subsection}{0pt}{\parskip}{-\parskip}
-\titlespacing{\subsubsection}{0pt}{\parskip}{-\parskip}
+\titlespacing{\subsection}{0pt}{\parskip}{0.5\parskip}
+\titlespacing{\subsubsection}{0pt}{\parskip}{0.25\parskip}
 \captionsetup[table]{aboveskip=1pt,belowskip=6 pt}
 
 \newcommand*{\BeginNoToc}{%
@@ -87,8 +87,7 @@
 \begin{document}
 
 \pagenumbering{gobble}
-%\include{Titlepage}
-\include{TitlepageUT}
+\include{Coversheet}
 
 \newpage
 \include{Abstract}
@@ -97,20 +96,19 @@
 \BeginNoToc
 \listoffigures
 \listoftables
-\include{Abbreviations}
+\include{Glossary}
 \EndNoToc
 \newpage
 \tableofcontents
-\include{Symbols}
 
 \newpage
 \pagenumbering{arabic}
-\include{Introduction}
-\include{Theory}
-\include{Modelling}
-\include{Exp}
-\include{Results}
-\include{Conclusion}
+\include{Ch1_Introduction}       % Ch 1: Introduction
+\include{Ch2_OutputSummary}      % Ch 2: Output Summary (max 2 pages)
+\include{Ch3_Context}            % Ch 3: Context / Literature Review (~1000w)
+\include{Ch4_Method}             % Ch 4: Method (~2500w)
+\include{Ch5_Results}            % Ch 5: Results (~6000w)
+\include{Ch6_Conclusions}        % Ch 6: Conclusions & Discussion
 
 
 \begin{otherlanguage}{australian}
@@ -131,8 +129,8 @@
 \def\@seccntformat#1{\csname Pref@#1\endcsname \csname the#1\endcsname\quad}
 \def\Pref@section{Appendix~}
 \makeatother %include appendix pre-fix
-\include{Appendix/AppendixA}
-\include{Appendix/AppendixB}
-\include{Appendix/AppendixC}
+\include{Appendix/AppendixA_PDD}
+\include{Appendix/AppendixB_Reuse}
+\include{Appendix/AppendixC_Minutes}
 \end{document}
 
