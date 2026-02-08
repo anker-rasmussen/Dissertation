@@ -1,0 +1,113 @@
+% Chapter 5: Results — Handbook 8.2.6
+% Present ALL results. Every method activity should have corresponding results here.
+% ~6000+ words for BSc (significant portion of the report).
+% Include diagrams, code snippets (in text, not as figures), test outputs.
+
+\section{Results}
+\label{sec:results}
+
+% TODO (~6000 words)
+
+\subsection{System Architecture}
+\label{sec:results-architecture}
+
+% - Final module structure diagram
+% - Trait hierarchy: DhtStore, MessageTransport, MpcRunner, TimeProvider, RandomSource
+% - Public API surface (key types exported from lib.rs)
+% - DHT record schema: 4 subkeys (listing data, bid index, announcements, bidder registry)
+
+% Include: module dependency diagram (Figure)
+% Include: DHT subkey layout table
+
+\subsection{Auction Protocol}
+\label{sec:results-protocol}
+
+% - Full protocol sequence diagram (Figure)
+%   1. Seller creates listing → encrypts content → publishes to DHT
+%   2. Bidders discover listing → create sealed bid (commitment) → submit via DHT
+%   3. Deadline expires → all parties compute sorted_bidders() for party assignment
+%   4. MPC route exchange via MpcRouteAnnouncement
+%   5. MPC execution (Shamir, N parties)
+%   6. Seller sends WinnerDecryptionRequest challenge
+%   7. Winner responds with WinnerBidReveal (bid_value + nonce)
+%   8. Seller verifies SHA256(bid || nonce) == commitment → sends DecryptionHashTransfer
+
+% - AuctionMessage enum (code snippet)
+% - Bid commitment scheme detail
+% - Party assignment algorithm (sorted_bidders from bid_record.rs)
+
+\subsection{MPC Integration}
+\label{sec:results-mpc}
+
+% - auction_n.mpc program (code snippet + explanation)
+% - MpcSidecar: TCP tunnelling architecture over Veilid routes
+% - MpcClient: External IO protocol (handshake, triple reception, masked input, output)
+% - MP-SPDZ process lifecycle (current state — manual vs automated)
+
+\subsection{User Interface}
+\label{sec:results-ui}
+
+% - Dioxus desktop application screenshots
+% - Key screens: listing creation, marketplace browse, bid placement, auction result
+% - devnet-ctl CLI tool
+
+\subsection{Testing and Verification}
+\label{sec:results-testing}
+
+% - Test matrix: unit / integration / e2e
+% - Integration test results (table or summary)
+%   - 3-party: highest bid wins, decryption key transfer, ties
+%   - 5-party: scaling
+%   - 10-party: scaling
+%   - Edge cases: reserve price, expired listings, duplicate bids
+% - Mock harness design (MultiPartyHarness — brief code snippet)
+% - E2E test setup: Docker devnet + LD_PRELOAD IP spoofing
+
+\subsection{Security Analysis}
+\label{sec:results-security}
+
+% This is the most technically interesting section.
+
+\subsubsection{Threat Model}
+% - Adversary types: honest-but-curious bidder, malicious seller,
+%   network observer, colluding parties
+% - Security goals: bid privacy (non-winners), auction integrity, content confidentiality
+
+\subsubsection{Timing Side Channel on Party Assignment}
+% - Party order = bid timestamp order
+% - Network observer monitoring DHT writes can infer party IDs
+% - Impact: correlation of MPC outputs with specific bidders
+% - Severity: Medium
+
+\subsubsection{Seller as Single Point of Trust}
+% - Seller = party 0, sees winner + bid, controls key release
+% - Can refuse verification (griefing) or collude with preferred bidder
+% - Compare to Danish sugar beet auction (trusted cooperative auctioneer)
+% - Severity: High (by design)
+
+\subsubsection{Winner Identity Linkage}
+% - Challenge-response reveals winner to seller before key transfer
+% - Necessary for protocol correctness
+% - Alternative: 1-out-of-N OT (mentioned in PDD, not implemented)
+% - Severity: Medium (by design)
+
+\subsubsection{DHT Metadata Leakage}
+% - Bid record keys publicly announced
+% - Number and timing of bids observable
+% - Mitigated partially by Veilid private routing
+% - Severity: Low
+
+\subsubsection{MPC Route Correlation}
+% - MpcRouteAnnouncement links pubkeys to route blobs
+% - Network-level observer could deanonymise participants
+% - Mitigated by Veilid onion routing (hop count = 2)
+% - Severity: Medium
+
+\subsubsection{Small-N Threshold Vulnerability}
+% - N=3 minimum: only 1 corrupt party tolerated (Shamir honest majority)
+% - With N=10: need 6 colluding parties
+% - Quantify threshold as function of N
+% - Severity: High for small auctions
+
+\subsubsection{Summary of Side Channels}
+% Include: summary table (side channel, severity, exploitable by, mitigated?)

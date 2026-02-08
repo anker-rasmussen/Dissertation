@@ -1,0 +1,300 @@
+@inproceedings{ahmed2011_evaluating_crdts,
+author = {Ahmed-Nacer, Mehdi and Ignat, Claudia-Lavinia and Oster, G\'{e}rald and Roh, Hyun-Gul and Urso, Pascal},
+title = {Evaluating CRDTs for real-time document editing},
+year = {2011},
+isbn = {9781450308632},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/2034691.2034717},
+doi = {10.1145/2034691.2034717},
+abstract = {Nowadays, real-time editing systems are catching on. Tools such as Etherpad or Google Docs enable multiple authors at dispersed locations to collaboratively write shared documents. In such systems, a replication mechanism is required to ensure consistency when merging concurrent changes performed on the same document. Current editing systems make use of operational transformation (OT), a traditional replication mechanism for concurrent document editing.Recently, Commutative Replicated Data Types (CRDTs) were introduced as a new class of replication mechanisms whose concurrent operations are designed to be natively commutative. CRDTs, such as WOOT, Logoot, Treedoc, and RGAs, are expected to be substitutes of replication mechanisms in collaborative editing systems.This paper demonstrates the suitability of CRDTs for real-time collaborative editing. To reflect the tendency of decentralised collaboration, which can resist censorship, tolerate failures, and let users have control over documents, we collected editing logs from real-time peer-to-peer collaborations. We present our experiment results obtained by replaying those editing logs on various CRDTs and an OT algorithm implemented in the same environment.},
+booktitle = {Proceedings of the 11th ACM Symposium on Document Engineering},
+pages = {103–112},
+numpages = {10},
+keywords = {benchmark, collaboration, commutative replicated data types, real-time editing},
+location = {Mountain View, California, USA},
+series = {DocEng '11}
+}
+
+@InProceedings{shapiro2011_conflict_free_replicated_datatypes,
+author="Shapiro, Marc
+and Pregui{\c{c}}a, Nuno
+and Baquero, Carlos
+and Zawirski, Marek",
+editor="D{\'e}fago, Xavier
+and Petit, Franck
+and Villain, Vincent",
+title="Conflict-Free Replicated Data Types",
+booktitle="Stabilization, Safety, and Security of Distributed Systems",
+year="2011",
+publisher="Springer Berlin Heidelberg",
+address="Berlin, Heidelberg",
+pages="386--400",
+abstract="Replicating data under Eventual Consistency (EC) allows any replica to accept updates without remote synchronisation. This ensures performance and scalability in large-scale distributed systems (e.g., clouds). However, published EC approaches are ad-hoc and error-prone. Under a formal Strong Eventual Consistency (SEC) model, we study sufficient conditions for convergence. A data type that satisfies these conditions is called a Conflict-free Replicated Data Type (CRDT). Replicas of any CRDT are guaranteed to converge in a self-stabilising manner, despite any number of failures. This paper formalises two popular approaches (state- and operation-based) and their relevant sufficient conditions. We study a number of useful CRDTs, such as sets with clean semantics, supporting both add and remove operations, and consider in depth the more complex Graph data type. CRDT types can be composed to develop large-scale distributed applications, and have interesting theoretical properties.",
+isbn="978-3-642-24550-3",
+  doi     = {10.1007/978-3-642-24550-3_29},
+  url     = {https://doi.org/10.1007/978-3-642-24550-3_29}
+}
+
+%bibtex citation not found on arxiv.
+@article{preguica2018_crdts_overview,
+  title   = {Conflict-Free Replicated Data Types},
+  author  = {Pregui{\c{c}}a, Nuno M. and Baquero, Carlos and Shapiro, Marc},
+  journal = {arXiv preprint arXiv:1805.06358},
+  year    = {2018},
+  doi     = {10.48550/arXiv.1805.06358},
+  url     = {https://arxiv.org/abs/1805.06358}
+}
+
+@article{zhao2019_secure_mpc,
+title = {Secure Multi-Party Computation: Theory, practice and applications},
+journal = {Information Sciences},
+volume = {476},
+pages = {357-372},
+year = {2019},
+issn = {0020-0255},
+doi = {https://doi.org/10.1016/j.ins.2018.10.024},
+url = {https://www.sciencedirect.com/science/article/pii/S0020025518308338},
+author = {Chuan Zhao and Shengnan Zhao and Minghao Zhao and Zhenxiang Chen and Chong-Zhi Gao and Hongwei Li and Yu-an Tan},
+keywords = {Secure Multi-Party Computation, Generic protocol, Cloud security, Secure outsourcing, Privacy-preserving technology},
+}
+% no bibtex citation.
+@mastersthesis{ivarsson2019_realtime_crdts,
+  title        = {Real-time collaborative editing using CRDTs},
+  author       = {Ivarsson, Jakob},
+  school       = {KTH Royal Institute of Technology, School of Electrical Engineering and Computer Science (EECS)},
+  year         = {2019},
+  type         = {Independent thesis Advanced level (Master’s, two years)},
+  pages        = {45},
+  series       = {TRITA-EECS-EX},
+  number       = {2019:28},
+  urn          = {urn:nbn:se:kth:diva-249545},
+  url          = {https://urn.kb.se/resolve?urn=urn:nbn:se:kth:diva-249545},
+  note         = {Available fulltext: https://kth.diva-portal.org/smash/get/diva2:1304659/FULLTEXT01.pdf}
+}
+
+@inproceedings{kleppmann2019_local_first_onward,
+author = {Kleppmann, Martin and Wiggins, Adam and van Hardenberg, Peter and McGranaghan, Mark},
+title = {Local-first software: you own your data, in spite of the cloud},
+year = {2019},
+isbn = {9781450369954},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3359591.3359737},
+doi = {10.1145/3359591.3359737},
+booktitle = {Proceedings of the 2019 ACM SIGPLAN International Symposium on New Ideas, New Paradigms, and Reflections on Programming and Software},
+pages = {154–178},
+numpages = {25},
+keywords = {CRDTs, collaboration software, data ownership, mobile computing, peer-to-peer communication},
+location = {Athens, Greece},
+series = {Onward! 2019}
+}
+
+@inproceedings{kleppmann2022_making_crdts_byzantine,
+author = {Kleppmann, Martin},
+title = {Making CRDTs Byzantine fault tolerant},
+year = {2022},
+isbn = {9781450392563},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3517209.3524042},
+doi = {10.1145/3517209.3524042},
+abstract = {It is often claimed that Conflict-free Replicated Data Types (CRDTs) ensure consistency of replicated data in peer-to-peer systems. However, peer-to-peer systems usually consist of untrusted nodes that may deviate from the specified protocol (i.e. exhibit Byzantine faults), and most existing CRDT algorithms cannot guarantee consistency in the presence of such faults. This paper shows how to adapt existing non-Byzantine CRDT algorithms and make them Byzantine fault-tolerant. The proposed scheme can tolerate any number of Byzantine nodes (making it immune to Sybil attacks), guarantees Strong Eventual Consistency, and requires only modest changes to existing CRDT algorithms.},
+booktitle = {Proceedings of the 9th Workshop on Principles and Practice of Consistency for Distributed Data},
+pages = {8–15},
+numpages = {8},
+keywords = {optimistic replication, eventual consistency, CRDTs, Byzantine fault tolerance},
+location = {Rennes, France},
+series = {PaPoC '22}
+}
+
+
+@misc{weidner2023_collabs_framework,
+      title={Collabs: A Flexible and Performant CRDT Collaboration Framework}, 
+      author={Matthew Weidner and Huairui Qi and Maxime Kjaer and Ria Pradeep and Benito Geordie and Yicheng Zhang and Gregory Schare and Xuan Tang and Sicheng Xing and Heather Miller},
+      year={2023},
+      eprint={2212.02618},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC},
+      doi     = {10.48550/arXiv.2212.02618},
+      url={https://arxiv.org/abs/2212.02618}, 
+}
+
+@article{ feng2022_concretely_efficient_mpc,
+	author = {{Feng, Dengguo} and {Yang, Kang}},
+	title = {Concretely efficient secure multi-party computation protocols: survey and more},
+	DOI= "10.1051/sands/2021001",
+	url= "https://doi.org/10.1051/sands/2021001",
+	journal = {Security and Safety},
+	year = 2022,
+	volume = 1,
+	pages = "2021001",
+}
+
+
+
+@misc{gruss2023_realtime_linkeddata_collab, title={Real-time Collaboration in Linked Data Systems}, url={https://www.alexandria.unisg.ch/handle/20.500.14171/118189}, abstractNote={Real-time collaboration has become commonplace in centralized Web applications, but decentralized Linked Data systems still lack readily accessible mechanisms. This demo paper proposes a novel approach that provides a viable solution to implement collaborative Linked Data in the Solid ecosystem using Conflict-free Replicated Data Types (CRDTs) and hypermedia-driven interaction. Specifically, we introduce a dedicated vocabulary for describing interactions with CRDT-based resources hosted in Solid Pods, empowering software clients to dynamically discover means for collaborative editing at run time. In contrast to current solutions for collaborative RDF, our approach works in combination with industry standard CRDTs to offer a seamless co-editing experience in decentralized Linked Data systems. To demonstrate the practicality of our approach, we showcase a Solid-hosted website that utilizes the vocabulary to expose hypermedia controls and a browser extension that effectively consumes these descriptions to enable real-time collaborative editing through CRDTs. By strategically shifting intelligence to the client-side, our approach significantly lowers the entry barrier for publishing real-time collaborative resources on the (Semantic) Web.}, author={Jonathan Gruss and Andrei Ciortea and Guido Salvaneschi and Simon Mayer}, year={2023}, month={Nov}, keywords={Real-Time Collaboration}, language={en_US} }
+
+
+@misc{li2023_secure_comp_tee_survey,
+      title={A Survey of Secure Computation Using Trusted Execution Environments}, 
+      author={Xiaoguo Li and Bowen Zhao and Guomin Yang and Tao Xiang and Jian Weng and Robert H. Deng},
+      year={2023},
+      eprint={2302.12150},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      doi     = {10.48550/arXiv.2302.12150},
+      url={https://arxiv.org/abs/2302.12150}, 
+}
+
+@techreport{cryptpad2021whitepaper,
+  title        = {CryptPad Whitepaper: Privacy-Friendly Real-Time Collaboration},
+  author       = {{XWiki SAS} and {CryptPad Team}},
+  year         = {2021},
+  institution  = {CryptPad / XWiki SAS},
+  url          = {https://blog.cryptpad.org/images/whitepaper.pdf},
+  note         = {Accessed: 2025-10-27},
+}
+
+
+@misc{ebay_help_bidding,
+  title   = {How bidding works},
+  author  = {{eBay Help}},
+  year    = {2025},
+  url     = {https://www.ebay.co.uk/help/buying/bidding/bidding?id=4003},
+  note    = {Accessed 29 Oct 2025}
+}
+
+@misc{fb_marketplace_help,
+  title   = {Marketplace Help Center: Using Marketplace to buy and sell},
+  author  = {{Meta/Facebook Help Center}},
+  year    = {2025},
+  url     = {https://www.facebook.com/help/1713241952104830},
+  note    = {Accessed 29 Oct 2025}
+}
+
+@misc{daian2019_flashboys2,
+      title={Flash Boys 2.0: Frontrunning, Transaction Reordering, and Consensus Instability in Decentralized Exchanges}, 
+      author={Philip Daian and Steven Goldfeder and Tyler Kell and Yunqi Li and Xueyuan Zhao and Iddo Bentov and Lorenz Breidenbach and Ari Juels},
+      year={2019},
+      eprint={1904.05234},
+      archivePrefix={arXiv},
+      primaryClass={cs.CR},
+      doi       = {10.1109/SP40000.2020.00040},
+      url={https://arxiv.org/abs/1904.05234}, 
+}
+
+@InProceedings{sako2000_hide_losers,
+  author="Sako, Kazue",
+  editor="Imai, Hideki
+and Zheng, Yuliang",
+  title="An Auction Protocol Which Hides Bids of Losers",
+  booktitle="Public Key Cryptography",
+  year="2000",
+  publisher="Springer Berlin Heidelberg",
+  address="Berlin, Heidelberg",
+  pages="422--432",
+  isbn="978-3-540-46588-1",
+  doi       = {10.1007/978-3-540-46588-1_28},
+  url       = {https://link.springer.com/chapter/10.1007/978-3-540-46588-1_28}
+
+}
+
+
+@InProceedings{bogetoft2009_mpc_live,
+  author="Bogetoft, Peter
+  and Christensen, Dan Lund
+  and Damg{\aa}rd, Ivan
+  and Geisler, Martin
+  and Jakobsen, Thomas
+  and Kr{\o}igaard, Mikkel
+  and Nielsen, Janus Dam
+  and Nielsen, Jesper Buus
+  and Nielsen, Kurt
+  and Pagter, Jakob
+  and Schwartzbach, Michael
+  and Toft, Tomas",
+  editor="Dingledine, Roger
+  and Golle, Philippe",
+  title="Secure Multiparty Computation Goes Live",
+  booktitle="Financial Cryptography and Data Security",
+  year="2009",
+  publisher="Springer Berlin Heidelberg",
+  address="Berlin, Heidelberg",
+  pages="325--343",
+  isbn="978-3-642-03549-4",
+  doi       = {10.1007/978-3-642-03549-4_20},
+  url       = {https://link.springer.com/chapter/10.1007/978-3-642-03549-4_20},
+
+}
+
+
+@inproceedings{mp-spdz,
+author = {Keller, Marcel},
+title = {MP-SPDZ: A Versatile Framework for Multi-Party Computation},
+year = {2020},
+isbn = {9781450370899},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3372297.3417872},
+doi = {10.1145/3372297.3417872},
+booktitle = {Proceedings of the 2020 ACM SIGSAC Conference on Computer and Communications Security},
+pages = {1575–1590},
+numpages = {16},
+keywords = {multi-party computation, implementation},
+location = {Virtual Event, USA},
+series = {CCS '20}
+}
+
+@InProceedings{damgaard2012_spdz,
+author="Damg{\aa}rd, Ivan
+and Pastro, Valerio
+and Smart, Nigel
+and Zakarias, Sarah",
+editor="Safavi-Naini, Reihaneh
+and Canetti, Ran",
+title="Multiparty Computation from Somewhat Homomorphic Encryption",
+booktitle="Advances in Cryptology -- CRYPTO 2012",
+year="2012",
+publisher="Springer Berlin Heidelberg",
+address="Berlin, Heidelberg",
+pages="643--662",
+abstract="We propose a general multiparty computation protocol secure against an active adversary corrupting up to {\$}{\$}n-1{\$}{\$}of the n players. The protocol may be used to compute securely arithmetic circuits over any finite field {\$}{\$}{\backslash}mathbb {\{}F{\}}{\_}{\{}p^k{\}}{\$}{\$}. Our protocol consists of a preprocessing phase that is both independent of the function to be computed and of the inputs, and a much more efficient online phase where the actual computation takes place. The online phase is unconditionally secure and has total computational (and communication) complexity linear in n, the number of players, where earlier work was quadratic in n. Moreover, the work done by each player is only a small constant factor larger than what one would need to compute the circuit in the clear. We show this is optimal for computation in large fields. In practice, for 3 players, a secure 64-bit multiplication can be done in 0.05 ms. Our preprocessing is based on a somewhat homomorphic cryptosystem. We extend a scheme by Brakerski et al., so that we can perform distributed decryption and handle many values in parallel in one ciphertext. The computational complexity of our preprocessing phase is dominated by the public-key operations, we need {\$}{\$}O(n^2/s){\$}{\$}operations per secure multiplication where s is a parameter that increases with the security parameter of the cryptosystem. Earlier work in this model needed {\$}{\$}{\backslash}varOmega (n^2){\$}{\$}operations. In practice, the preprocessing prepares a secure 64-bit multiplication for 3 players in about 13 ms.",
+isbn="978-3-642-32009-5"
+}
+
+
+@article{evans2018_pragmatic_mpc,
+author = {Evans, David and Kolesnikov, Vladimir and Rosulek, Mike},
+title = {A Pragmatic Introduction to Secure Multi-Party Computation},
+year = {2018},
+issue_date = {Dec 2018},
+publisher = {Now Publishers Inc.},
+address = {Hanover, MA, USA},
+volume = {2},
+number = {2–3},
+issn = {2474-1558},
+url = {https://doi.org/10.1561/3300000019},
+doi = {10.1561/3300000019},
+journal = {Found. Trends Priv. Secur.},
+month = dec,
+pages = {70–246},
+numpages = {181}
+}
+@inproceedings{cryptonote2013_whitepaper,
+  author   = {van Saberhagen, Nicolas},
+  title    = {CryptoNote v 2.0},
+  date     = {2013-10-17},
+  url      = {https://decred.org/research/saberhagen2013.pdf},
+  urldate  = {2025-10-31},
+  note     = {Original CryptoNote whitepaper; commonly cited in Monero literature}
+}
+
+@online{veilid_developer_book,
+  author   = {{Veilid Project}},
+  title    = {Veilid Developer Book},
+  url      = {https://veilid.gitlab.io/developer-book/},
+  urldate  = {2025-10-31},
+  year     = {2025},
+  note     = {Official developer documentation for the Veilid framework}
+}

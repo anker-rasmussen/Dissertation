@@ -1,0 +1,46 @@
+% Chapter 3: Context — Handbook 8.2.4
+% Literature review organised BY TOPIC, not by paper.
+% ~1000 words for BSc. Cite everything. Show relevance to your project.
+
+\section{Context}
+\label{sec:context}
+
+% TODO (~1000 words)
+
+\subsection{Online Auction Mechanisms}
+\label{sec:ctx-auctions}
+
+% - eBay proxy bidding: open, incrementally visible [ebay_help_bidding]
+% - Facebook Marketplace: listing+messaging, no formal auction [fb_marketplace_help]
+% - Sealed-bid auctions: first-price vs second-price (Vickrey)
+%   - Privacy advantage: non-winning bids never revealed
+%   - Require trusted auctioneer in traditional setting
+% - Blockchain auctions and front-running / MEV [Daian et al. 2019]
+% - Cryptographic auction protocols that hide losing bids [Sako 2000]
+
+\subsection{Secure Multi-Party Computation}
+\label{sec:ctx-mpc}
+
+% - MPC fundamentals: joint computation without revealing inputs [Evans et al. 2018]
+% - Shamir's Secret Sharing: threshold scheme, honest-majority
+% - SPDZ protocol: dishonest-majority at higher cost [Damgaard et al. 2012]
+% - MP-SPDZ framework: multiple backends, practical performance [Keller 2020]
+% - Real-world deployment: Danish sugar beet auction [Bogetoft et al. 2009]
+% - Efficiency surveys and practical considerations [Feng & Yang 2022; Zhao et al. 2019]
+% - Alternative: TEEs vs MPC [Li et al. 2023]
+
+\subsection{Privacy-Preserving Peer-to-Peer Networks}
+\label{sec:ctx-p2p}
+
+% - Veilid framework: privacy-first, onion routing, DHT, no exit nodes [Veilid Developer Book]
+% - Comparison with Tor (exit nodes, not DHT-native), I2P (garlic routing), IPFS (no privacy)
+% - DHT privacy properties in Kademlia-based systems
+% - Metadata minimisation: why transport-layer privacy matters for auctions
+
+\subsection{Commitment Schemes and Content Encryption}
+\label{sec:ctx-crypto}
+
+% - Hash-based commitments: SHA256(value || nonce) — hiding and binding properties
+% - AES-256-GCM for content encryption
+% - Brief mention of CryptoNote / Monero for potential settlement [Saberhagen 2013]
+%   (planned but not implemented — context only)

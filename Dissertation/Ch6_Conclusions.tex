@@ -1,0 +1,76 @@
+% Chapter 6: Conclusions and Discussion — Handbook 8.2.7
+% Tie up all themes. MUST include LSEPI section.
+% Revisit objectives, discuss conclusions, future work, reflections.
+
+\section{Conclusions and Discussion}
+\label{sec:conclusions}
+
+% TODO (~1500 words)
+
+\subsection{Objectives Revisited}
+\label{sec:conc-objectives}
+
+% For each PDD objective, state: met / partially met / not met, with evidence.
+%
+% 1. End-to-end auction flow (list -> bid -> MPC -> winner -> decrypt)
+%    - Status: [achieved / partially achieved]
+%    - Evidence: integration tests, e2e demo
+%
+% 2. Sealed-bid via MPC (Shamir, N >= 3)
+%    - Status: [achieved]
+%    - Evidence: auction_n.mpc, mock-based tests for 3/5/10 parties
+%
+% 3. MPC-gated content decryption
+%    - Status: [achieved via commitment + challenge-response]
+%    - Note: PDD mentioned 1-out-of-N OT — descoped to simpler scheme. Discuss why.
+%
+% 4. Monero testnet settlement
+%    - Status: [not implemented]
+%    - Discuss scope reduction: complexity of Monero RPC integration,
+%      time constraints, not essential for demonstrating core MPC+Veilid contribution.
+
+\subsection{Discussion}
+\label{sec:conc-discussion}
+
+% - Main contribution: demonstrated that Veilid + MPC can provide a working
+%   sealed-bid auction without a trusted auctioneer
+% - Security analysis reveals fundamental tradeoffs (seller trust, small-N threshold)
+% - Compare to prior work: Danish sugar beet auction had a trusted cooperative;
+%   this project removes that but introduces seller-as-party-0 trust assumption
+% - Link conclusions back to Context chapter
+
+\subsection{Legal, Social, Ethical and Professional Issues}
+\label{sec:conc-lsepi}
+
+% MANDATORY section (handbook 8.2.7). Marks deducted if missing.
+%
+% - Dual-use risk: private marketplace could facilitate illicit trade
+%   - Mitigation: devnet only, no mainnet, testnet funds only, no deployment scripts for public
+% - Privacy vs accountability tradeoff
+%   - Sealed bids protect bidders but complicate dispute resolution
+% - Licensing compliance:
+%   - Veilid: MPL-2.0 (file-level copyleft, complied with)
+%   - MP-SPDZ: BSD-3-Clause (permissive)
+%   - All other deps: MIT/Apache-2.0
+% - BCS Code of Conduct: no work that endangers individuals
+% - Data protection: no PII collected, no human participants
+% - Revisit PDD LSEPI section — what changed during the project?
+
+\subsection{Future Work}
+\label{sec:conc-future}
+
+% - Threshold decryption: remove seller trust assumption (key shared among MPC parties)
+% - Dishonest-majority protocol (SPDZ) for small auctions
+% - Monero testnet integration for settlement
+% - Mobile client (Veilid supports mobile platforms)
+% - Formal protocol verification (ProVerif / Tamarin)
+% - Anti-replay nonces on message types
+% - Rate limiting / DoS protection
+
+\subsection{Reflections}
+\label{sec:conc-reflections}
+
+% - What was learned (Veilid, MPC, Rust async, P2P development)
+% - Challenges faced (Veilid API stability, MPC sidecar complexity, devnet setup)
+% - What would be done differently (start MPC integration earlier, simpler UI)
+% - Project management: how plan deviated from PDD timeline

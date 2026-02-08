@@ -1,0 +1,49 @@
+% Chapter 1: Introduction — Handbook 8.2.2
+% Concise introduction and summary of what readers should expect.
+% Update from PDD, written in past tense.
+
+\section{Introduction}
+\label{sec:introduction}
+
+% TODO (~1000 words total for this chapter)
+
+\subsection{Problem Statement}
+\label{sec:intro-problem}
+
+% - Popular marketplaces (eBay, FB Marketplace) either leak bid info or have no formal auction
+% - Blockchain auctions add auditability but invite front-running / MEV
+% - Sealed-bid auctions preserve privacy but require a trusted auctioneer
+% - MPC removes the trusted auctioneer, but needs a coordination and transport layer
+
+\subsection{Project Objectives}
+\label{sec:intro-objectives}
+
+% Main objective: deliver a working P2P marketplace on Veilid supporting
+% sealed-bid listings with MPC-based winner determination.
+%
+% Sub-objectives:
+%   1. End-to-end auction flow (list -> bid -> MPC -> winner -> decrypt)
+%   2. Sealed-bid via Shamir secret sharing (N >= 3 parties)
+%   3. MPC-gated content decryption (commitment + challenge-response)
+%   4. Monero testnet settlement (status: not implemented — discuss scope change)
+
+\subsection{Beneficiaries}
+\label{sec:intro-beneficiaries}
+
+% - Project consultant (proof-of-concept for Veilid)
+% - Veilid community (real-world application demonstrating capabilities)
+% - Privacy-oriented marketplace users (research prototype)
+
+\subsection{Scope and Assumptions}
+\label{sec:intro-scope}
+
+% - Proof-of-concept, not production deployment
+% - Devnet only (no public Veilid network, no mainnet funds)
+% - Honest-majority assumption for Shamir (N/2+1 honest parties)
+% - Seller trust assumption for decryption key release
+% - Monero integration planned but descoped (discuss why)
+
+\subsection{Report Structure}
+\label{sec:intro-structure}
+
+% Brief roadmap: Ch 2 outputs, Ch 3 context, Ch 4 method, Ch 5 results, Ch 6 conclusions

@@ -1,0 +1,93 @@
+% Chapter 4: Method — Handbook 8.2.5
+% Detailed report of analysis, design, implementation, evaluation.
+% ~2500 words for BSc. Be specific to YOUR project, not generic SE theory.
+% State which lifecycle you followed, don't explain what it is.
+% Must be clear about reused materials (see also Appendix B).
+
+\section{Method}
+\label{sec:method}
+
+% TODO (~2500 words)
+
+\subsection{Development Approach}
+\label{sec:method-approach}
+
+% - Iterative, prototype-driven development (state, don't explain the methodology)
+% - Devnet-first: local Docker environment before any public network
+% - Mock-driven testing: trait-based dependency injection for deterministic simulation
+% - Tools: Rust 2021, cargo + nextest, Git, Docker Compose
+
+\subsection{System Architecture}
+\label{sec:method-architecture}
+
+% - Two-tier coordination design:
+%   - AuctionLogic<D,T,M,C>: generic over DhtStore, MessageTransport, MpcRunner, TimeProvider
+%   - AuctionCoordinator: concrete Veilid implementation wrapping AuctionLogic
+% - Justification: testability — full N-party auction simulations run in <1s with mocks
+% - Module layout: traits/ -> mocks/ -> veilid/ -> marketplace/ -> mpc/ -> app/
+
+% Include: high-level architecture diagram (Figure)
+
+\subsection{Technology Choices and Justifications}
+\label{sec:method-tech}
+
+% Each choice needs a WHY and what alternatives were considered.
+
+\subsubsection{Veilid for Coordination and Transport}
+% - DHT-native (no separate DHT needed), private routes, no exit nodes
+% - Directly satisfies project brief
+% - Tradeoff: less battle-tested than Tor, smaller anonymity set
+
+\subsubsection{Shamir Secret Sharing for MPC}
+% - N-party support, honest-majority assumption acceptable for auctions
+% - MP-SPDZ provides production-grade implementation with shamir-party.x
+% - Tradeoff: requires honest majority (N/2+1). With N=3, one corrupt party breaks privacy.
+% - Alternative considered: SPDZ (dishonest majority) — higher overhead, not needed for prototype
+
+\subsubsection{Commitment Scheme for Bid Integrity}
+% - SHA256(bid_value || 32-byte nonce): hiding + binding
+% - Simple, well-understood, no additional crypto infrastructure needed
+% - Alternative considered: Pedersen commitments (homomorphic but more complex)
+
+\subsubsection{Serialization Formats}
+% - CBOR (ciborium) for DHT-stored records: self-describing, forward-compatible
+% - Bincode for wire messages: compact, fast for ephemeral auction messages
+% - Veilid DHT takes raw Vec<u8> — format choice is application-level
+
+\subsubsection{Desktop UI Framework}
+% - Dioxus 0.7.2: Rust-native, cross-platform desktop
+% - Allows single-language codebase (Rust end-to-end)
+
+\subsection{MPC Protocol Design}
+\label{sec:method-mpc}
+
+% - auction_n.mpc: N-party sealed-bid auction
+% - Party assignment: by bid timestamp ascending (seller = party 0, always earliest)
+% - Privacy model: party 0 sees winner ID + bid; others see only won: 0/1
+% - Post-MPC verification: seller-initiated challenge-response
+% - Decryption key transfer via Veilid private routes
+
+\subsection{Testing Strategy}
+\label{sec:method-testing}
+
+% - Unit tests: traits, serialization, time/random providers
+% - Integration tests: MultiPartyHarness with shared mock DHT/transport/MPC
+%   - 3-party, 5-party, 10-party auctions
+%   - Edge cases: ties, reserve price, expired listings, duplicate bids
+% - E2E tests: real Veilid devnet + Docker, marked #[ignore]
+% - No human participants (as per ethics form)
+
+\subsection{Reused Software}
+\label{sec:method-reuse}
+
+% Required by Handbook 8.2.5 and 9.6. See also Appendix B.
+% State what was reused and how it affected development.
+%
+% | Component       | Licence       | How used                          |
+% |-----------------|---------------|-----------------------------------|
+% | veilid-core     | MPL-2.0       | P2P networking, DHT, routing      |
+% | MP-SPDZ         | BSD-3-Clause  | MPC protocol execution            |
+% | Dioxus 0.7.2    | MIT/Apache    | Desktop UI framework              |
+% | tokio           | MIT           | Async runtime                     |
+% | sha2, aes-gcm   | MIT/Apache    | Cryptographic primitives          |
+% | ciborium        | MIT/Apache    | CBOR serialization                |
