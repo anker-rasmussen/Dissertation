@@ -17,9 +17,8 @@ REPOS_DIR    := $(ROOT_DIR)Repos
 MARKET_DIR   := $(REPOS_DIR)/dissertationapp/market
 MP_SPDZ_DIR  := $(REPOS_DIR)/MP-SPDZ
 VEILID_DIR   := $(REPOS_DIR)/veilid
-IPSPOOF_SRC  := $(VEILID_DIR)/.devcontainer/scripts/ip_spoof.c
-IPSPOOF_SO   := $(VEILID_DIR)/.devcontainer/scripts/libipspoof.so
-COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
+IPSPOOF_DIR  := $(REPOS_DIR)/dissertationapp/ip-spoof
+IPSPOOF_SO   := $(IPSPOOF_DIR)/target/debug/libipspoof.so
 
 .PHONY: help build build-release build-mpspdz build-ipspoof \
         devnet-up devnet-down devnet-restart \
@@ -40,22 +39,15 @@ build-release: ## Build market crate (release)
 build-mpspdz: ## Build MP-SPDZ (shamir-party.x, SSL certs, auction_n)
 	$(ROOT_DIR)setup-mpspdz.sh --mp-spdz-dir $(MP_SPDZ_DIR)
 
-build-ipspoof: $(IPSPOOF_SO) ## Build libipspoof.so for devnet IP spoofing
-
-$(IPSPOOF_SO): $(IPSPOOF_SRC)
-	gcc -shared -fPIC -o $@ $< -ldl
+build-ipspoof: ## Build libipspoof.so (Rust) for devnet IP spoofing
+	cargo build --manifest-path $(IPSPOOF_DIR)/Cargo.toml
 
 # ── Devnet ───────────────────────────────────────────────────────────────────
-devnet-up: ## Start Veilid devnet (Docker)
-	docker compose -f $(COMPOSE_FILE) up -d
-	@echo "Waiting for bootstrap to be healthy..."
-	@for i in $$(seq 1 30); do \
-		docker compose -f $(COMPOSE_FILE) ps | grep -q healthy && break; \
-		sleep 2; printf "."; \
-	done; echo ""
+devnet-up: build-ipspoof ## Start Veilid devnet (5 processes)
+	cargo run --manifest-path $(MARKET_DIR)/Cargo.toml --bin devnet-ctl -- start
 
 devnet-down: ## Stop Veilid devnet
-	docker compose -f $(COMPOSE_FILE) down
+	cargo run --manifest-path $(MARKET_DIR)/Cargo.toml --bin devnet-ctl -- stop
 	-pkill -f "target/debug/market" 2>/dev/null
 	-pkill -f "target/release/market" 2>/dev/null
 
@@ -105,6 +97,6 @@ fmt: ## Check formatting
 clean: ## cargo clean
 	cargo clean --manifest-path $(MARKET_DIR)/Cargo.toml
 
-clean-data: ## Remove node data directories and docker volumes
+clean-data: ## Remove node data directories
 	rm -rf ~/.local/share/smpc-auction-node-*
-	-docker volume ls | grep veilid | awk '{print $$2}' | xargs -r docker volume rm 2>/dev/null
+	rm -rf /tmp/veilid-devnet
