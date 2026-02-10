@@ -21,7 +21,7 @@ IPSPOOF_SRC  := $(VEILID_DIR)/.devcontainer/scripts/ip_spoof.c
 IPSPOOF_SO   := $(VEILID_DIR)/.devcontainer/scripts/libipspoof.so
 COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
 
-.PHONY: help build build-release build-mpspdz build-ipspoof \
+.PHONY: help install-deps build build-release build-mpspdz build-ipspoof \
         devnet-up devnet-down devnet-restart \
         demo test test-e2e check clippy fmt clean clean-data
 
@@ -29,6 +29,44 @@ COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*##' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
+
+# ── Dependencies ─────────────────────────────────────────────────────────────
+install-deps: ## Install all system dependencies (requires sudo)
+	@command -v cargo >/dev/null 2>&1 || \
+		{ echo "Rust not found. Install via: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"; exit 1; }
+	@if [ -f /etc/arch-release ]; then \
+		echo "Detected Arch Linux..."; \
+		sudo pacman -S --needed --noconfirm \
+			base-devel pkgconf cmake clang python \
+			openssl xdotool webkit2gtk-4.1 gtk3 libsoup3 \
+			glib2 atk cairo pango gdk-pixbuf2 \
+			gmp libsodium boost boost-libs \
+			automake libtool docker docker-compose; \
+	elif [ -f /etc/debian_version ]; then \
+		echo "Detected Debian/Ubuntu..."; \
+		sudo apt-get update && sudo apt-get install -y --no-install-recommends \
+			build-essential pkg-config cmake clang python3 \
+			libssl-dev libxdo-dev \
+			libwebkit2gtk-4.1-dev libgtk-3-dev libsoup-3.0-dev \
+			libjavascriptcoregtk-4.1-dev libglib2.0-dev \
+			libatk1.0-dev libcairo2-dev libpango1.0-dev \
+			libgdk-pixbuf-2.0-dev \
+			libgmp-dev libsodium-dev \
+			libboost-dev libboost-filesystem-dev \
+			libboost-iostreams-dev libboost-thread-dev \
+			automake libtool docker.io docker-compose; \
+	elif [ "$$(uname -s)" = "Darwin" ]; then \
+		echo "Detected macOS..."; \
+		brew install cmake openssl gmp libsodium boost automake libtool docker docker-compose; \
+	else \
+		echo "Unsupported OS. Please install dependencies manually:"; \
+		echo "  C++ toolchain (g++/clang++), cmake, python3, openssl, gmp,"; \
+		echo "  libsodium, boost (filesystem, iostreams, thread),"; \
+		echo "  GTK3/WebKit2GTK 4.1 (for Dioxus desktop), automake, libtool, docker"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "All system dependencies installed."
 
 # ── Build ────────────────────────────────────────────────────────────────────
 build: ## Build market crate (debug)
