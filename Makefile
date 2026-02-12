@@ -23,7 +23,7 @@ COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
 
 .PHONY: help install-deps build build-release build-mpspdz build-ipspoof \
         devnet-up devnet-down devnet-restart \
-        demo test test-e2e check clippy fmt clean clean-data
+        demo test test-e2e check clippy fmt clean clean-data coverage
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -87,10 +87,17 @@ $(IPSPOOF_SO): $(IPSPOOF_SRC)
 devnet-up: ## Start Veilid devnet (Docker)
 	docker compose -f $(COMPOSE_FILE) up -d
 	@echo "Waiting for bootstrap to be healthy..."
-	@for i in $$(seq 1 30); do \
-		docker compose -f $(COMPOSE_FILE) ps | grep -q healthy && break; \
+	@healthy=false; \
+	for i in $$(seq 1 30); do \
+		if docker compose -f $(COMPOSE_FILE) ps | grep -q healthy; then \
+			healthy=true; break; \
+		fi; \
 		sleep 2; printf "."; \
-	done; echo ""
+	done; echo ""; \
+	if [ "$$healthy" = "false" ]; then \
+		echo "ERROR: Devnet bootstrap did not become healthy after 60 seconds"; \
+		exit 1; \
+	fi
 
 devnet-down: ## Stop Veilid devnet
 	docker compose -f $(COMPOSE_FILE) down
@@ -108,7 +115,8 @@ demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build eve
 	@echo "  Node 7 -> port 5167, IP 1.2.3.8 (Auctioneer)"
 	@echo ""
 	@sleep 10
-	@for offset in 5 6 7; do \
+	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
+	for offset in 5 6 7; do \
 		( \
 			export MARKET_NODE_OFFSET=$$offset; \
 			export LD_PRELOAD=$(IPSPOOF_SO); \
@@ -118,7 +126,6 @@ demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build eve
 		) & \
 		sleep 2; \
 	done; \
-	trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
 	wait
 
 # ── Test ─────────────────────────────────────────────────────────────────────
@@ -146,3 +153,7 @@ clean: ## cargo clean
 clean-data: ## Remove node data directories and docker volumes
 	rm -rf ~/.local/share/smpc-auction-node-*
 	-docker volume ls | grep veilid | awk '{print $$2}' | xargs -r docker volume rm 2>/dev/null
+
+# ── Coverage ────────────────────────────────────────────────────────────────
+coverage: ## Run tests with coverage (requires cargo-tarpaulin)
+	cargo tarpaulin --manifest-path $(MARKET_DIR)/Cargo.toml --skip-clean --ignore-tests --out Html

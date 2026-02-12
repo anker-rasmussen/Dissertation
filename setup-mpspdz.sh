@@ -13,7 +13,7 @@
 #
 # =============================================================================
 
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -58,6 +58,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# ── Validate --max-parties ──────────────────────────────────────────────────
+if ! [[ "$MAX_PARTIES" =~ ^[0-9]+$ ]] || [ "$MAX_PARTIES" -lt 3 ]; then
+    log_error "--max-parties must be an integer >= 3 (got: $MAX_PARTIES)"
+    exit 1
+fi
+
 # ── Resolve MP-SPDZ directory ────────────────────────────────────────────────
 if [ -z "$MP_SPDZ_DIR" ]; then
     # Auto-detect: look for Repos/MP-SPDZ relative to this script
@@ -101,7 +107,8 @@ if [ -f "$MP_SPDZ_DIR/shamir-party.x" ]; then
     log_success "shamir-party.x already built"
 else
     log_info "Building shamir-party.x (this may take a while)..."
-    make -C "$MP_SPDZ_DIR" -j"$(nproc)" shamir-party.x
+    NPROC="${NPROC:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
+    make -C "$MP_SPDZ_DIR" -j"$NPROC" shamir-party.x
     log_success "shamir-party.x built"
 fi
 
