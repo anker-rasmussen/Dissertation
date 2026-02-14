@@ -23,7 +23,7 @@ COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
 
 .PHONY: help install-deps build build-release build-mpspdz build-ipspoof \
         devnet-up devnet-down devnet-restart \
-        demo test test-e2e check clippy fmt clean clean-data coverage
+        demo test test-e2e test-e2e-full check clippy fmt clean clean-data coverage release-gate
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -132,9 +132,13 @@ demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build eve
 test: ## Run unit + integration tests (mock-based)
 	cargo test --manifest-path $(MARKET_DIR)/Cargo.toml
 
-test-e2e: build-ipspoof  ## Run e2e tests (requires devnet + LD_PRELOAD)
+test-e2e: build-ipspoof  ## Run e2e smoke tests (requires devnet + LD_PRELOAD)
 	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
-		--test integration_tests -- --ignored
+		--test integration_tests -- --ignored e2e_smoke_
+
+test-e2e-full: build-ipspoof ## Run full e2e tests (MPC/decryption, slower)
+	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
+		--test integration_tests -- --ignored e2e_full_
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 check: ## cargo check
@@ -157,3 +161,6 @@ clean-data: ## Remove node data directories and docker volumes
 # ── Coverage ────────────────────────────────────────────────────────────────
 coverage: ## Run tests with coverage (requires cargo-tarpaulin)
 	cargo tarpaulin --manifest-path $(MARKET_DIR)/Cargo.toml --skip-clean --ignore-tests --out Html
+
+release-gate: ## Verify clean tree and submodule pin integrity
+	$(ROOT_DIR)scripts/release_gate.sh

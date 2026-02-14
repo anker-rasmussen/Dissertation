@@ -19,6 +19,7 @@ PDD/*.bcf
 PDD/*.bbl-SAVE-ERROR
 PDD/*.bcf-SAVE-ERROR
 PDD/*.wc
+/scripts/*
 Dissertation/*.md
 IMPLEMENTATION_PLAN.md
 .claude

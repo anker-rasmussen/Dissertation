@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [master]
+    tags: ["v*"]
   pull_request:
     branches: [master]
 
@@ -134,8 +135,21 @@ jobs:
         run: |
           cargo test \
             --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
-            --test integration_tests -- --ignored
+            --test integration_tests -- --ignored e2e_smoke_
 
       - name: Stop devnet
         if: always()
         run: make -C "${{ github.workspace }}" devnet-down
+
+  release-gate:
+    name: Release Gate
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run release gate checks
+        run: ./scripts/release_gate.sh
