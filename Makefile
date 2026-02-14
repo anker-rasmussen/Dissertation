@@ -72,8 +72,8 @@ install-deps: ## Install all system dependencies (requires sudo)
 build: ## Build market crate (debug)
 	cargo build --manifest-path $(MARKET_DIR)/Cargo.toml
 
-build-release: ## Build market crate (release)
-	cargo build --release --manifest-path $(MARKET_DIR)/Cargo.toml
+build-release: ## Build market crate (release, with devnet support)
+	cargo build --release --features devnet --manifest-path $(MARKET_DIR)/Cargo.toml
 
 build-mpspdz: ## Build MP-SPDZ (shamir-party.x, SSL certs, auction_n)
 	$(ROOT_DIR)setup-mpspdz.sh --mp-spdz-dir $(MP_SPDZ_DIR)
@@ -110,13 +110,13 @@ devnet-restart: devnet-down clean-data devnet-up ## Restart devnet with clean da
 demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build everything, start devnet, launch 3 nodes
 	@echo ""
 	@echo "Starting 3-node market cluster..."
-	@echo "  Node 5 -> port 5165, IP 1.2.3.6 (Bidder 1)"
-	@echo "  Node 6 -> port 5166, IP 1.2.3.7 (Bidder 2)"
-	@echo "  Node 7 -> port 5167, IP 1.2.3.8 (Auctioneer)"
+	@echo "  Node 9  -> port 5169, IP 1.2.3.10 (Bidder 1)"
+	@echo "  Node 10 -> port 5170, IP 1.2.3.11 (Bidder 2)"
+	@echo "  Node 11 -> port 5171, IP 1.2.3.12 (Auctioneer)"
 	@echo ""
 	@sleep 10
 	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
-	for offset in 5 6 7; do \
+	for offset in 9 10 11; do \
 		( \
 			export MARKET_NODE_OFFSET=$$offset; \
 			export LD_PRELOAD=$(IPSPOOF_SO); \
@@ -133,7 +133,7 @@ test: ## Run unit + integration tests (mock-based)
 	cargo test --manifest-path $(MARKET_DIR)/Cargo.toml
 
 test-e2e: build-ipspoof  ## Run e2e tests (requires devnet + LD_PRELOAD)
-	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
+	LD_PRELOAD=$(IPSPOOF_SO) cargo test --features devnet --manifest-path $(MARKET_DIR)/Cargo.toml \
 		--test integration_tests -- --ignored
 
 # ── Quality ──────────────────────────────────────────────────────────────────
