@@ -59,8 +59,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # ── Validate --max-parties ──────────────────────────────────────────────────
-if ! [[ "$MAX_PARTIES" =~ ^[0-9]+$ ]] || [ "$MAX_PARTIES" -lt 3 ]; then
-    log_error "--max-parties must be an integer >= 3 (got: $MAX_PARTIES)"
+if ! [[ "$MAX_PARTIES" =~ ^[0-9]+$ ]] || [ "$MAX_PARTIES" -lt 2 ]; then
+    log_error "--max-parties must be an integer >= 2 (got: $MAX_PARTIES)"
     exit 1
 fi
 
@@ -102,14 +102,14 @@ if [ ${#MISSING[@]} -gt 0 ]; then
 fi
 log_success "Prerequisites OK (make, python3, C++ compiler)"
 
-# ── 2. Build shamir-party.x ──────────────────────────────────────────────────
-if [ -f "$MP_SPDZ_DIR/shamir-party.x" ]; then
-    log_success "shamir-party.x already built"
+# ── 2. Build mascot-party.x ──────────────────────────────────────────────────
+if [ -f "$MP_SPDZ_DIR/mascot-party.x" ]; then
+    log_success "mascot-party.x already built"
 else
-    log_info "Building shamir-party.x (this may take a while)..."
+    log_info "Building mascot-party.x (this may take a while)..."
     NPROC="${NPROC:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
-    make -C "$MP_SPDZ_DIR" -j"$NPROC" shamir-party.x
-    log_success "shamir-party.x built"
+    make -C "$MP_SPDZ_DIR" -j"$NPROC" mascot-party.x
+    log_success "mascot-party.x built"
 fi
 
 # ── 3. Ensure Player-Data directory ──────────────────────────────────────────
@@ -145,7 +145,7 @@ echo -e "${GREEN}  MP-SPDZ Setup Complete${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
 echo "  Directory:    $MP_SPDZ_DIR"
-echo "  Binary:       $([ -f "$MP_SPDZ_DIR/shamir-party.x" ] && echo "OK" || echo "MISSING")"
+echo "  Binary:       $([ -f "$MP_SPDZ_DIR/mascot-party.x" ] && echo "OK" || echo "MISSING")"
 echo "  SSL certs:    $([ -f "$MP_SPDZ_DIR/Player-Data/P0.pem" ] && echo "OK" || echo "MISSING")"
 echo "  auction_n-3:  $([ -f "$SCHEDULE_FILE" ] && echo "OK" || echo "MISSING")"
 echo ""
