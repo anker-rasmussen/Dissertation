@@ -72,8 +72,8 @@ install-deps: ## Install all system dependencies (requires sudo)
 build: ## Build market crate (debug)
 	cargo build --manifest-path $(MARKET_DIR)/Cargo.toml
 
-build-release: ## Build market crate (release, with devnet support)
-	cargo build --release --features devnet --manifest-path $(MARKET_DIR)/Cargo.toml
+build-release: ## Build market crate (release)
+	cargo build --release --manifest-path $(MARKET_DIR)/Cargo.toml
 
 build-mpspdz: ## Build MP-SPDZ (shamir-party.x, SSL certs, auction_n)
 	$(ROOT_DIR)setup-mpspdz.sh --mp-spdz-dir $(MP_SPDZ_DIR)
@@ -133,7 +133,7 @@ test: ## Run unit + integration tests (mock-based)
 	cargo test --manifest-path $(MARKET_DIR)/Cargo.toml
 
 test-e2e: build-ipspoof  ## Run e2e tests (requires devnet + LD_PRELOAD)
-	LD_PRELOAD=$(IPSPOOF_SO) cargo test --features devnet --manifest-path $(MARKET_DIR)/Cargo.toml \
+	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
 		--test integration_tests -- --ignored
 
 # ── Quality ──────────────────────────────────────────────────────────────────
