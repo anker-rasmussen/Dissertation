@@ -38,11 +38,11 @@
 % - Directly satisfies project brief
 % - Tradeoff: less battle-tested than Tor, smaller anonymity set
 
-\subsubsection{Shamir Secret Sharing for MPC}
-% - N-party support, honest-majority assumption acceptable for auctions
-% - MP-SPDZ provides production-grade implementation with shamir-party.x
-% - Tradeoff: requires honest majority (N/2+1). With N=3, one corrupt party breaks privacy.
-% - Alternative considered: SPDZ (dishonest majority) — higher overhead, not needed for prototype
+\subsubsection{MASCOT Protocol for MPC}
+% - N-party support with dishonest-majority security (no honest-majority assumption)
+% - MP-SPDZ provides production-grade implementation with mascot-party.x
+% - Advantage over Shamir: tolerates N-1 corrupt parties; supports N >= 2
+% - Tradeoff: higher computational cost than Shamir (OT-based), acceptable for auction workloads
 
 \subsubsection{Commitment Scheme for Bid Integrity}
 % - SHA256(bid_value || 32-byte nonce): hiding + binding

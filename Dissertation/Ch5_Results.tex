@@ -27,7 +27,7 @@
 %   2. Bidders discover listing → create sealed bid (commitment) → submit via DHT
 %   3. Deadline expires → all parties compute sorted_bidders() for party assignment
 %   4. MPC route exchange via MpcRouteAnnouncement
-%   5. MPC execution (Shamir, N parties)
+%   5. MPC execution (MASCOT, N parties)
 %   6. Seller sends WinnerDecryptionRequest challenge
 %   7. Winner responds with WinnerBidReveal (bid_value + nonce)
 %   8. Seller verifies SHA256(bid || nonce) == commitment → sends DecryptionHashTransfer
@@ -103,11 +103,11 @@
 % - Mitigated by Veilid onion routing (hop count = 2)
 % - Severity: Medium
 
-\subsubsection{Small-N Threshold Vulnerability}
-% - N=3 minimum: only 1 corrupt party tolerated (Shamir honest majority)
-% - With N=10: need 6 colluding parties
-% - Quantify threshold as function of N
-% - Severity: High for small auctions
+\subsubsection{Small-N Security Considerations}
+% - N=2 minimum: MASCOT tolerates up to N-1 corrupt parties (dishonest majority)
+% - With N=2: even 1 corrupt party is tolerated (only privacy of corrupt party's input lost)
+% - With N=10: up to 9 corrupt parties tolerated
+% - Severity: Low — MASCOT provides stronger guarantees than Shamir for small auctions
 
 \subsubsection{Summary of Side Channels}
 % Include: summary table (side channel, severity, exploitable by, mitigated?)

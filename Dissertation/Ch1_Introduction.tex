@@ -23,7 +23,7 @@
 %
 % Sub-objectives:
 %   1. End-to-end auction flow (list -> bid -> MPC -> winner -> decrypt)
-%   2. Sealed-bid via Shamir secret sharing (N >= 3 parties)
+%   2. Sealed-bid via MASCOT MPC protocol (N >= 2 parties)
 %   3. MPC-gated content decryption (commitment + challenge-response)
 %   4. Monero testnet settlement (status: not implemented — discuss scope change)
 
@@ -39,7 +39,7 @@
 
 % - Proof-of-concept, not production deployment
 % - Devnet only (no public Veilid network, no mainnet funds)
-% - Honest-majority assumption for Shamir (N/2+1 honest parties)
+% - MASCOT provides dishonest-majority security (no honest-majority assumption)
 % - Seller trust assumption for decryption key release
 % - Monero integration planned but descoped (discuss why)
 
