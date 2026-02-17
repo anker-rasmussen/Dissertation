@@ -39,10 +39,18 @@ jobs:
         with:
           workspaces: Repos/dissertationapp/market
 
+      - name: Cache APT packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-cache
+          key: apt-lint-${{ hashFiles('.github/workflows/ci.yml') }}
+
       - name: Install system dependencies
         run: |
+          mkdir -p "$HOME/apt-cache/partial"
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            -o Dir::Cache::Archives="$HOME/apt-cache" \
             build-essential \
             pkg-config \
             cmake \
@@ -70,7 +78,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs: lint-and-test
     env:
       MP_SPDZ_DIR: ${{ github.workspace }}/Repos/MP-SPDZ
@@ -90,10 +98,18 @@ jobs:
         with:
           workspaces: Repos/dissertationapp/market
 
+      - name: Cache APT packages
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-cache
+          key: apt-e2e-${{ hashFiles('.github/workflows/ci.yml') }}
+
       - name: Install system dependencies
         run: |
+          mkdir -p "$HOME/apt-cache/partial"
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
+            -o Dir::Cache::Archives="$HOME/apt-cache" \
             build-essential \
             pkg-config \
             cmake \
@@ -120,22 +136,49 @@ jobs:
             automake \
             libtool
 
+      - name: Cache libipspoof.so
+        id: cache-ipspoof
+        uses: actions/cache@v4
+        with:
+          path: Repos/veilid/.devcontainer/scripts/libipspoof.so
+          key: ipspoof-${{ hashFiles('Repos/veilid/.devcontainer/scripts/ip_spoof.c') }}
+
       - name: Build libipspoof.so
+        if: steps.cache-ipspoof.outputs.cache-hit != 'true'
         run: make -C "${{ github.workspace }}" build-ipspoof
 
+      - name: Cache MP-SPDZ build
+        id: cache-mpspdz
+        uses: actions/cache@v4
+        with:
+          path: |
+            Repos/MP-SPDZ/mascot-party.x
+            Repos/MP-SPDZ/Programs/Schedules/
+            Repos/MP-SPDZ/Player-Data/
+          key: mpspdz-${{ hashFiles('Repos/MP-SPDZ/.git', 'setup-mpspdz.sh') }}
+
       - name: Prepare MP-SPDZ
+        if: steps.cache-mpspdz.outputs.cache-hit != 'true'
         run: ${{ github.workspace }}/setup-mpspdz.sh --mp-spdz-dir "$MP_SPDZ_DIR"
 
       - name: Start devnet
         run: make -C "${{ github.workspace }}" devnet-up
 
-      - name: Run e2e tests
+      - name: E2E smoke tests
         env:
           LD_PRELOAD: ${{ github.workspace }}/Repos/veilid/.devcontainer/scripts/libipspoof.so
         run: |
           cargo test \
             --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
             --test integration_tests -- --ignored e2e_smoke_
+
+      - name: E2E edge case tests
+        env:
+          LD_PRELOAD: ${{ github.workspace }}/Repos/veilid/.devcontainer/scripts/libipspoof.so
+        run: |
+          cargo test \
+            --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
+            --test integration_tests -- --ignored e2e_edge_
 
       - name: Stop devnet
         if: always()
