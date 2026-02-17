@@ -75,7 +75,7 @@ build: ## Build market crate (debug)
 build-release: ## Build market crate (release)
 	cargo build --release --manifest-path $(MARKET_DIR)/Cargo.toml
 
-build-mpspdz: ## Build MP-SPDZ (mascot-party.x, SSL certs, auction_n)
+build-mpspdz: ## Build MP-SPDZ (mascot-party.x, auction_n)
 	$(ROOT_DIR)setup-mpspdz.sh --mp-spdz-dir $(MP_SPDZ_DIR)
 
 build-ipspoof: $(IPSPOOF_SO) ## Build libipspoof.so for devnet IP spoofing
