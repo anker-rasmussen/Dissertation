@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
             echo "Prepares MP-SPDZ for sealed-bid auction use (idempotent)."
             echo ""
             echo "Options:"
-            echo "  --max-parties N       Max parties for SSL certs (default: 10)"
+            echo "  --max-parties N       Max parties for pre-compilation (default: 10)"
             echo "  --mp-spdz-dir PATH    Path to MP-SPDZ directory"
             echo "  -h, --help            Show this help"
             echo ""
@@ -116,18 +116,12 @@ fi
 mkdir -p "$MP_SPDZ_DIR/Player-Data"
 log_success "Player-Data/ directory exists"
 
-# ── 4. Generate SSL certificates ─────────────────────────────────────────────
-LAST_CERT="$MP_SPDZ_DIR/Player-Data/P$((MAX_PARTIES - 1)).pem"
-if [ -f "$MP_SPDZ_DIR/Player-Data/P0.pem" ] && [ -f "$LAST_CERT" ]; then
-    log_success "SSL certificates already exist (P0..P$((MAX_PARTIES - 1)))"
-else
-    log_info "Generating SSL certificates for $MAX_PARTIES parties..."
-    cd "$MP_SPDZ_DIR"
-    ./Scripts/setup-ssl.sh "$MAX_PARTIES"
-    log_success "SSL certificates generated"
-fi
+# Note: SSL certificates are NOT needed.  MASCOT uses OT-based key setup
+# and our tunnel proxy routes all inter-party TCP over Veilid (already
+# encrypted).  MP-SPDZ falls back to plaintext sockets when no certs are
+# present in Player-Data/, which is fine for localhost tunnel traffic.
 
-# ── 5. Pre-compile auction_n for 3 parties ───────────────────────────────────
+# ── 4. Pre-compile auction_n for 3 parties ───────────────────────────────────
 SCHEDULE_FILE="$MP_SPDZ_DIR/Programs/Schedules/auction_n-3.sch"
 if [ -f "$SCHEDULE_FILE" ]; then
     log_success "auction_n-3 already compiled"
@@ -146,6 +140,5 @@ echo -e "${GREEN}═════════════════════
 echo ""
 echo "  Directory:    $MP_SPDZ_DIR"
 echo "  Binary:       $([ -f "$MP_SPDZ_DIR/mascot-party.x" ] && echo "OK" || echo "MISSING")"
-echo "  SSL certs:    $([ -f "$MP_SPDZ_DIR/Player-Data/P0.pem" ] && echo "OK" || echo "MISSING")"
 echo "  auction_n-3:  $([ -f "$SCHEDULE_FILE" ] && echo "OK" || echo "MISSING")"
 echo ""
