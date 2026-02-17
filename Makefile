@@ -23,7 +23,7 @@ COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
 
 .PHONY: help install-deps build build-release build-mpspdz build-ipspoof \
         devnet-up devnet-down devnet-restart \
-        demo test test-e2e test-e2e-full check clippy fmt clean clean-data coverage release-gate
+        demo test test-e2e test-e2e-full check clippy fmt clean clean-data coverage coverage-e2e release-gate
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -159,8 +159,12 @@ clean-data: ## Remove node data directories and docker volumes
 	-docker volume ls | grep veilid | awk '{print $$2}' | xargs -r docker volume rm 2>/dev/null
 
 # ── Coverage ────────────────────────────────────────────────────────────────
-coverage: ## Run tests with coverage (requires cargo-tarpaulin)
-	cargo tarpaulin --manifest-path $(MARKET_DIR)/Cargo.toml --skip-clean --ignore-tests --out Html
+coverage: ## Run tests with coverage (requires cargo-llvm-cov)
+	cargo llvm-cov --manifest-path $(MARKET_DIR)/Cargo.toml --html
+
+coverage-e2e: build-ipspoof ## Run all tests (incl. e2e) with coverage (requires devnet)
+	LD_PRELOAD=$(IPSPOOF_SO) cargo llvm-cov --manifest-path $(MARKET_DIR)/Cargo.toml \
+		--html -- --include-ignored
 
 release-gate: ## Verify clean tree and submodule pin integrity
 	$(ROOT_DIR)scripts/release_gate.sh
