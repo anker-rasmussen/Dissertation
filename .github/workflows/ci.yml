@@ -70,7 +70,7 @@ jobs:
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     needs: lint-and-test
     env:
       MP_SPDZ_DIR: ${{ github.workspace }}/Repos/MP-SPDZ
@@ -129,13 +129,29 @@ jobs:
       - name: Start devnet
         run: make -C "${{ github.workspace }}" devnet-up
 
-      - name: Run e2e tests
+      - name: E2E smoke tests
         env:
           LD_PRELOAD: ${{ github.workspace }}/Repos/veilid/.devcontainer/scripts/libipspoof.so
         run: |
           cargo test \
             --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
             --test integration_tests -- --ignored e2e_smoke_
+
+      - name: E2E edge case tests
+        env:
+          LD_PRELOAD: ${{ github.workspace }}/Repos/veilid/.devcontainer/scripts/libipspoof.so
+        run: |
+          cargo test \
+            --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
+            --test integration_tests -- --ignored e2e_edge_
+
+      - name: E2E full integration tests
+        env:
+          LD_PRELOAD: ${{ github.workspace }}/Repos/veilid/.devcontainer/scripts/libipspoof.so
+        run: |
+          cargo test \
+            --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
+            --test integration_tests -- --ignored e2e_full_
 
       - name: Stop devnet
         if: always()
