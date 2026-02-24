@@ -110,13 +110,13 @@ devnet-restart: devnet-down clean-data devnet-up ## Restart devnet with clean da
 demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build everything, start devnet, launch 3 nodes
 	@echo ""
 	@echo "Starting 3-node market cluster..."
-	@echo "  Node 9  -> port 5169, IP 1.2.3.10 (Bidder 1)"
-	@echo "  Node 10 -> port 5170, IP 1.2.3.11 (Bidder 2)"
-	@echo "  Node 11 -> port 5171, IP 1.2.3.12 (Auctioneer)"
+	@echo "  Node 20 -> port 5180, IP 1.2.3.21 (Bidder 1)"
+	@echo "  Node 21 -> port 5181, IP 1.2.3.22 (Bidder 2)"
+	@echo "  Node 22 -> port 5182, IP 1.2.3.23 (Auctioneer)"
 	@echo ""
 	@sleep 10
 	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
-	for offset in 9 10 11; do \
+	for offset in 20 21 22; do \
 		( \
 			export MARKET_NODE_OFFSET=$$offset; \
 			export LD_PRELOAD=$(IPSPOOF_SO); \
@@ -134,11 +134,11 @@ test: ## Run unit + integration tests (mock-based)
 
 test-e2e: build-ipspoof  ## Run e2e smoke tests (requires devnet + LD_PRELOAD)
 	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
-		--test integration_tests -- --ignored e2e_smoke_
+		--test integration_tests -- --ignored --test-threads=1 e2e_smoke_
 
 test-e2e-full: build-ipspoof ## Run full e2e tests (MPC/decryption, slower)
 	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
-		--test integration_tests -- --ignored e2e_full_
+		--test integration_tests -- --ignored --test-threads=1 e2e_full_
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 check: ## cargo check
