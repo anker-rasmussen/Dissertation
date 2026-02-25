@@ -22,8 +22,8 @@ IPSPOOF_SO   := $(VEILID_DIR)/.devcontainer/scripts/libipspoof.so
 COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
 
 .PHONY: help install-deps build build-release build-mpspdz build-ipspoof \
-        devnet-up devnet-down devnet-restart \
-        demo test test-e2e test-e2e-full check clippy fmt clean clean-data coverage coverage-e2e release-gate
+        devnet-up devnet-down devnet-restart devnet-up-tailnet \
+        demo demo-tailnet test test-e2e test-e2e-full check clippy fmt clean clean-data coverage coverage-e2e release-gate
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -106,6 +106,14 @@ devnet-down: ## Stop Veilid devnet
 
 devnet-restart: devnet-down clean-data devnet-up ## Restart devnet with clean data
 
+TAILSCALE_IP := $(shell tailscale ip -4 2>/dev/null)
+
+devnet-up-tailnet: devnet-up ## Start devnet + print tailnet join instructions
+	@echo ""
+	@echo "Devnet is running. Docker nodes listen on 0.0.0.0:516X (host networking)."
+	@echo "Remote hosts can join via Tailscale with:"
+	@echo "  ./Repos/dissertationapp/market/join-tailnet.sh $(TAILSCALE_IP)"
+
 # ── Demo ─────────────────────────────────────────────────────────────────────
 demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build everything, start devnet, launch 3 nodes
 	@echo ""
@@ -113,6 +121,29 @@ demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build eve
 	@echo "  Node 20 -> port 5180, IP 1.2.3.21 (Bidder 1)"
 	@echo "  Node 21 -> port 5181, IP 1.2.3.22 (Bidder 2)"
 	@echo "  Node 22 -> port 5182, IP 1.2.3.23 (Auctioneer)"
+	@echo ""
+	@sleep 10
+	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
+	for offset in 20 21 22; do \
+		( \
+			export MARKET_NODE_OFFSET=$$offset; \
+			export LD_PRELOAD=$(IPSPOOF_SO); \
+			export RUST_LOG=info,veilid_core=info; \
+			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
+			cd $(MARKET_DIR) && cargo run --release 2>&1 | sed "s/^/[Node $$offset] /"; \
+		) & \
+		sleep 2; \
+	done; \
+	wait
+
+demo-tailnet: build-ipspoof build-mpspdz build-release devnet-up-tailnet ## Tailnet demo: 3 local nodes + remote join support
+	@echo ""
+	@echo "Starting 3-node market cluster (tailnet-ready devnet)..."
+	@echo "  Tailscale IP: $(TAILSCALE_IP)"
+	@echo "  Node 20 -> port 5180 (Bidder 1)"
+	@echo "  Node 21 -> port 5181 (Bidder 2)"
+	@echo "  Node 22 -> port 5182 (Auctioneer)"
+	@echo "  Remote hosts: ./Repos/dissertationapp/market/join-tailnet.sh $(TAILSCALE_IP)"
 	@echo ""
 	@sleep 10
 	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
