@@ -179,6 +179,14 @@ jobs:
             --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
             --test integration_tests -- --ignored e2e_edge_
 
+      - name: E2E full auction tests
+        env:
+          LD_PRELOAD: ${{ github.workspace }}/Repos/veilid/.devcontainer/scripts/libipspoof.so
+        run: |
+          cargo test \
+            --manifest-path "${{ github.workspace }}/Repos/dissertationapp/market/Cargo.toml" \
+            --test integration_tests -- --ignored e2e_full_
+
       - name: Stop devnet
         if: always()
         run: make -C "${{ github.workspace }}" devnet-down
