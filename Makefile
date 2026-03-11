@@ -100,7 +100,7 @@ devnet-up: ## Start Veilid devnet (Docker)
 	fi
 
 devnet-down: ## Stop Veilid devnet
-	docker compose -f $(COMPOSE_FILE) down
+	docker compose -f $(COMPOSE_FILE) down -v
 	-pkill -f "target/debug/market" 2>/dev/null
 	-pkill -f "target/release/market" 2>/dev/null
 
@@ -118,15 +118,15 @@ devnet-up-tailnet: devnet-up ## Start devnet + print tailnet join instructions
 demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build everything, start devnet, launch 3 nodes
 	@echo ""
 	@echo "Starting 3-node market cluster..."
-	@echo "  Node 20 -> port 5180, IP 1.2.3.21 (Bidder 1)"
-	@echo "  Node 21 -> port 5181, IP 1.2.3.22 (Bidder 2)"
-	@echo "  Node 22 -> port 5182, IP 1.2.3.23 (Auctioneer)"
+	@echo "  Node 20 -> port 5170, IP 1.2.3.21 (Bidder 1)"
+	@echo "  Node 21 -> port 5171, IP 1.2.3.22 (Bidder 2)"
+	@echo "  Node 22 -> port 5172, IP 1.2.3.23 (Auctioneer)"
 	@echo ""
 	@sleep 10
 	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
 		( \
-			export MARKET_NODE_OFFSET=$$offset; \
+			export VEILID_NODE_OFFSET=$$offset; \
 			export LD_PRELOAD=$(IPSPOOF_SO); \
 			export RUST_LOG=info,veilid_core=info; \
 			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
@@ -140,16 +140,16 @@ demo-tailnet: build-ipspoof build-mpspdz build-release devnet-up-tailnet ## Tail
 	@echo ""
 	@echo "Starting 3-node market cluster (tailnet-ready devnet)..."
 	@echo "  Tailscale IP: $(TAILSCALE_IP)"
-	@echo "  Node 20 -> port 5180 (Bidder 1)"
-	@echo "  Node 21 -> port 5181 (Bidder 2)"
-	@echo "  Node 22 -> port 5182 (Auctioneer)"
+	@echo "  Node 20 -> port 5170 (Bidder 1)"
+	@echo "  Node 21 -> port 5171 (Bidder 2)"
+	@echo "  Node 22 -> port 5172 (Auctioneer)"
 	@echo "  Remote hosts: ./Repos/dissertationapp/market/join-tailnet.sh $(TAILSCALE_IP)"
 	@echo ""
 	@sleep 10
 	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
 		( \
-			export MARKET_NODE_OFFSET=$$offset; \
+			export VEILID_NODE_OFFSET=$$offset; \
 			export LD_PRELOAD=$(IPSPOOF_SO); \
 			export RUST_LOG=info,veilid_core=info; \
 			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
