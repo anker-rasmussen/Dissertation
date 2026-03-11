@@ -115,22 +115,27 @@ devnet-up-tailnet: devnet-up ## Start devnet + print tailnet join instructions
 	@echo "  ./Repos/dissertationapp/market/join-tailnet.sh $(TAILSCALE_IP)"
 
 # ── Demo ─────────────────────────────────────────────────────────────────────
-demo: build-ipspoof build-mpspdz build-release devnet-up ## Full demo: build everything, start devnet, launch 3 nodes
+demo: build-ipspoof build-mpspdz build-release devnet-restart ## Full demo: build everything, start devnet, launch 3 nodes
 	@echo ""
 	@echo "Starting 3-node market cluster..."
 	@echo "  Node 20 -> port 5170, IP 1.2.3.21 (Bidder 1)"
 	@echo "  Node 21 -> port 5171, IP 1.2.3.22 (Bidder 2)"
-	@echo "  Node 22 -> port 5172, IP 1.2.3.23 (Auctioneer)"
+	@echo "  Node 22 -> port 5172, IP 1.2.3.23 (Auctioneer/Seller)"
 	@echo ""
 	@sleep 10
 	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
+		if [ $$offset -eq 22 ]; then \
+			DEMO_ARGS="--demo-role seller --demo-duration 90"; \
+		else \
+			DEMO_ARGS="--demo-role bidder"; \
+		fi; \
 		( \
 			export VEILID_NODE_OFFSET=$$offset; \
 			export LD_PRELOAD=$(IPSPOOF_SO); \
 			export RUST_LOG=info,veilid_core=info; \
 			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
-			cd $(MARKET_DIR) && cargo run --release 2>&1 | sed "s/^/[Node $$offset] /"; \
+			cd $(MARKET_DIR) && cargo run --release -- $$DEMO_ARGS 2>&1 | sed "s/^/[Node $$offset] /"; \
 		) & \
 		sleep 2; \
 	done; \
