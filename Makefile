@@ -1,12 +1,11 @@
 # =============================================================================
 # Dissertation Project — Top-Level Makefile
 # =============================================================================
-# Composable build/run targets that delegate to existing scripts.
 #
 #   make help         — show available targets
 #   make build        — debug build of market crate
-#   make test         — run unit + integration tests
 #   make demo         — full devnet demo (build → start → run 3 nodes)
+#   make bench        — run all benchmarks and generate plots
 # =============================================================================
 
 SHELL := /bin/bash
@@ -21,9 +20,11 @@ IPSPOOF_SRC  := $(VEILID_DIR)/.devcontainer/scripts/ip_spoof.c
 IPSPOOF_SO   := $(VEILID_DIR)/.devcontainer/scripts/libipspoof.so
 COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
 
+PLAYGROUND_BIN   := $(HOME)/Repos/veilid/target/release/veilid-playground
+PLAYGROUND_DATA  := /tmp/veilid-playground
+
 .PHONY: help install-deps build build-release build-mpspdz build-ipspoof \
-        devnet-up devnet-down devnet-restart devnet-up-tailnet \
-        demo demo-tailnet test test-e2e test-e2e-full check clippy fmt clean clean-data coverage coverage-e2e release-gate
+        demo test clean bench bench-clean devnet-up devnet-down
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -72,20 +73,22 @@ install-deps: ## Install all system dependencies (requires sudo)
 build: ## Build market crate (debug)
 	cargo build --manifest-path $(MARKET_DIR)/Cargo.toml
 
-build-release: ## Build market crate (release)
+build-release:
 	cargo build --release --manifest-path $(MARKET_DIR)/Cargo.toml
 
-build-mpspdz: ## Build MP-SPDZ (mascot-party.x, auction_n)
+build-mpspdz:
 	$(ROOT_DIR)setup-mpspdz.sh --mp-spdz-dir $(MP_SPDZ_DIR)
 
-build-ipspoof: $(IPSPOOF_SO) ## Build libipspoof.so for devnet IP spoofing
+build-ipspoof: $(IPSPOOF_SO)
 
 $(IPSPOOF_SO): $(IPSPOOF_SRC)
 	gcc -shared -fPIC -o $@ $< -ldl
 
-# ── Devnet ───────────────────────────────────────────────────────────────────
-devnet-up: ## Start Veilid devnet (Docker)
-	docker compose -f $(COMPOSE_FILE) up -d
+# ── Demo ─────────────────────────────────────────────────────────────────────
+demo: build-ipspoof build-mpspdz build-release ## Full demo: build, start devnet, launch 3 nodes
+	@docker compose -f $(COMPOSE_FILE) down -v 2>/dev/null; true
+	@rm -rf ~/.local/share/smpc-auction-node-*
+	@docker compose -f $(COMPOSE_FILE) up -d
 	@echo "Waiting for bootstrap to be healthy..."
 	@healthy=false; \
 	for i in $$(seq 1 30); do \
@@ -98,24 +101,6 @@ devnet-up: ## Start Veilid devnet (Docker)
 		echo "ERROR: Devnet bootstrap did not become healthy after 60 seconds"; \
 		exit 1; \
 	fi
-
-devnet-down: ## Stop Veilid devnet
-	docker compose -f $(COMPOSE_FILE) down -v
-	-pkill -f "target/debug/market" 2>/dev/null
-	-pkill -f "target/release/market" 2>/dev/null
-
-devnet-restart: devnet-down clean-data devnet-up ## Restart devnet with clean data
-
-TAILSCALE_IP := $(shell tailscale ip -4 2>/dev/null)
-
-devnet-up-tailnet: devnet-up ## Start devnet + print tailnet join instructions
-	@echo ""
-	@echo "Devnet is running. Docker nodes listen on 0.0.0.0:516X (host networking)."
-	@echo "Remote hosts can join via Tailscale with:"
-	@echo "  ./Repos/dissertationapp/market/join-tailnet.sh $(TAILSCALE_IP)"
-
-# ── Demo ─────────────────────────────────────────────────────────────────────
-demo: build-ipspoof build-mpspdz build-release devnet-restart ## Full demo: build everything, start devnet, launch 3 nodes
 	@echo ""
 	@echo "Starting 3-node market cluster..."
 	@echo "  Node 20 -> port 5170, IP 1.2.3.21 (Bidder 1)"
@@ -141,66 +126,87 @@ demo: build-ipspoof build-mpspdz build-release devnet-restart ## Full demo: buil
 	done; \
 	wait
 
-demo-tailnet: build-ipspoof build-mpspdz build-release devnet-up-tailnet ## Tailnet demo: 3 local nodes + remote join support
-	@echo ""
-	@echo "Starting 3-node market cluster (tailnet-ready devnet)..."
-	@echo "  Tailscale IP: $(TAILSCALE_IP)"
-	@echo "  Node 20 -> port 5170 (Bidder 1)"
-	@echo "  Node 21 -> port 5171 (Bidder 2)"
-	@echo "  Node 22 -> port 5172 (Auctioneer)"
-	@echo "  Remote hosts: ./Repos/dissertationapp/market/join-tailnet.sh $(TAILSCALE_IP)"
-	@echo ""
-	@sleep 10
-	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
-	for offset in 20 21 22; do \
-		( \
-			export VEILID_NODE_OFFSET=$$offset; \
-			export LD_PRELOAD=$(IPSPOOF_SO); \
-			export RUST_LOG=info,veilid_core=info; \
-			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
-			cd $(MARKET_DIR) && cargo run --release 2>&1 | sed "s/^/[Node $$offset] /"; \
-		) & \
-		sleep 2; \
-	done; \
-	wait
-
 # ── Test ─────────────────────────────────────────────────────────────────────
 test: ## Run unit + integration tests (mock-based)
 	cargo test --manifest-path $(MARKET_DIR)/Cargo.toml
 
-test-e2e: build-ipspoof  ## Run e2e smoke tests (requires devnet + LD_PRELOAD)
-	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
-		--test integration_tests -- --ignored --test-threads=1 e2e_smoke_
-
-test-e2e-full: build-ipspoof ## Run full e2e tests (MPC/decryption, slower)
-	LD_PRELOAD=$(IPSPOOF_SO) cargo test --manifest-path $(MARKET_DIR)/Cargo.toml \
-		--test integration_tests -- --ignored --test-threads=1 e2e_full_
-
-# ── Quality ──────────────────────────────────────────────────────────────────
-check: ## cargo check
-	cargo check --manifest-path $(MARKET_DIR)/Cargo.toml
-
-clippy: ## cargo clippy with warnings as errors
-	cargo clippy --manifest-path $(MARKET_DIR)/Cargo.toml -- -D warnings
-
-fmt: ## Check formatting
-	cargo fmt --manifest-path $(MARKET_DIR)/Cargo.toml -- --check
-
 # ── Clean ────────────────────────────────────────────────────────────────────
-clean: ## cargo clean
+clean: ## Remove all build artifacts, node data, and docker volumes
 	cargo clean --manifest-path $(MARKET_DIR)/Cargo.toml
-
-clean-data: ## Remove node data directories and docker volumes
 	rm -rf ~/.local/share/smpc-auction-node-*
-	-docker volume ls | grep veilid | awk '{print $$2}' | xargs -r docker volume rm 2>/dev/null
+	-docker compose -f $(COMPOSE_FILE) down -v 2>/dev/null
+	-pkill -f "target/debug/market" 2>/dev/null
+	-pkill -f "target/release/market" 2>/dev/null
 
-# ── Coverage ────────────────────────────────────────────────────────────────
-coverage: ## Run tests with coverage (requires cargo-llvm-cov)
-	cargo llvm-cov --manifest-path $(MARKET_DIR)/Cargo.toml --html
+# ── Devnet ──────────────────────────────────────────────────────────────────
+devnet-up: ## Start Docker devnet (20 nodes)
+	docker compose -f $(COMPOSE_FILE) up -d
 
-coverage-e2e: build-ipspoof ## Run all tests (incl. e2e) with coverage (requires devnet)
-	LD_PRELOAD=$(IPSPOOF_SO) cargo llvm-cov --manifest-path $(MARKET_DIR)/Cargo.toml \
-		--html -- --include-ignored
+devnet-down: ## Stop Docker devnet and clean volumes
+	docker compose -f $(COMPOSE_FILE) down -v
 
-release-gate: ## Verify clean tree and submodule pin integrity
-	$(ROOT_DIR)scripts/release_gate.sh
+# ── Benchmarks ──────────────────────────────────────────────────────────
+BENCH_DIR    := $(MARKET_DIR)/scripts/bench
+BENCH_OUT    := $(MARKET_DIR)/bench-results
+BENCH_ITERS  ?= 5
+BENCH_DEVNET_MODE ?= docker
+BENCH_DEVNET_SIZES ?= 40 60 80
+BENCH_WARMUP_SECS ?= 60
+
+# Ipspoof: use Rust ipspoof for playground, C ipspoof for Docker
+PLAYGROUND_IPSPOOF := $(HOME)/Repos/veilid/target/release/libveilid_ipspoof.so
+ifeq ($(BENCH_DEVNET_MODE),playground)
+  BENCH_IPSPOOF := $(PLAYGROUND_IPSPOOF)
+else
+  BENCH_IPSPOOF := $(IPSPOOF_SO)
+endif
+
+bench: build-mpspdz build-release ## Run all benchmarks (direct + Veilid) and generate plots
+ifeq ($(BENCH_DEVNET_MODE),docker)
+	$(MAKE) build-ipspoof
+endif
+	@echo "=== Phase 1: Direct MPC (localhost, no Veilid) ==="
+	cd $(MARKET_DIR) && \
+	BENCH_ITERS=$(BENCH_ITERS) \
+	MP_SPDZ_DIR=$(MP_SPDZ_DIR) \
+	BENCH_OUT=$(BENCH_OUT)/direct_mpc.csv \
+	bash $(BENCH_DIR)/run_mpc_direct.sh
+	@echo ""
+	@echo "=== Phase 2: MASCOT over Veilid (3-10 parties, devnet $(BENCH_DEVNET_SIZES)) ==="
+	cd $(MARKET_DIR) && \
+	LD_PRELOAD=$(BENCH_IPSPOOF) \
+	MP_SPDZ_DIR=$(MP_SPDZ_DIR) \
+	BENCH_ITERS=$(BENCH_ITERS) \
+	BENCH_PARTIES="3 4 5 6 8 10" \
+	BENCH_DEVNET_SIZES="$(BENCH_DEVNET_SIZES)" \
+	BENCH_DEVNET_MODE=$(BENCH_DEVNET_MODE) \
+	BENCH_WARMUP_SECS=$(BENCH_WARMUP_SECS) \
+	BENCH_MPC_PROTOCOL=mascot \
+	MPC_PROTOCOL=mascot-party.x \
+	BENCH_OUT=$(BENCH_OUT)/veilid_auction.csv \
+	cargo run --release --bin bench-auction
+	@echo ""
+	@echo "=== Phase 3: Shamir over Veilid (3-20 parties, devnet $(BENCH_DEVNET_SIZES)) ==="
+	cd $(MARKET_DIR) && \
+	LD_PRELOAD=$(BENCH_IPSPOOF) \
+	MP_SPDZ_DIR=$(MP_SPDZ_DIR) \
+	BENCH_ITERS=$(BENCH_ITERS) \
+	BENCH_PARTIES="3 4 5 6 8 10 15 20" \
+	BENCH_DEVNET_SIZES="$(BENCH_DEVNET_SIZES)" \
+	BENCH_DEVNET_MODE=$(BENCH_DEVNET_MODE) \
+	BENCH_WARMUP_SECS=$(BENCH_WARMUP_SECS) \
+	BENCH_MPC_PROTOCOL=shamir \
+	MPC_PROTOCOL=shamir-party.x \
+	BENCH_OUT=$(BENCH_OUT)/veilid_auction.csv \
+	cargo run --release --bin bench-auction
+	@echo ""
+	@echo "=== Phase 4: Generating plots ==="
+	python3 $(BENCH_DIR)/plot_results.py \
+		--results-dir $(BENCH_OUT) \
+		--output-dir $(BENCH_OUT)/plots
+	@echo ""
+	@echo "Benchmark complete. Plots saved to: $(BENCH_OUT)/plots/"
+	@ls -la $(BENCH_OUT)/plots/*.pdf 2>/dev/null || true
+
+bench-clean: ## Remove all benchmark results and plots
+	rm -rf $(BENCH_OUT)
