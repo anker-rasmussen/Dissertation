@@ -1,12 +1,61 @@
 % Abstract — 100-250 words (Handbook 8.1.1)
+%
+% === Questions for Martin (meeting notes) ===
+%
+% 1. Lead with privacy or engineering? The project is both a privacy system
+%    and a hard engineering challenge (building on immature Veilid). Which
+%    angle do markers care about more?
+%
+% 2. Seller-only-gets-a-route: the seller never learns the winner's identity
+%    — just an ephemeral onion route. Stronger than most sealed-bid systems.
+%    Worth emphasising in the abstract or too in-the-weeds?
+%
+% 3. Monero descope framing. Time went to MPC tunnel hardening + route
+%    recovery + E2E tests instead. Was this the right tradeoff?
+%
+% 4. LSEPI / dual-use honesty level. The system *could* be deployed as a
+%    real anonymous marketplace. The limitations (no Sybil resistance, seller
+%    trust, liveness) are all fixable engineering problems, not fundamental.
+%    How candid should the report be about this?
+%
+% 5. Assumptions up front vs in Results. Ch1 currently plans to state what
+%    IS private, what ISN'T, trust assumptions, liveness constraints. Too
+%    much for an intro, or good that markers see it immediately?
+%
+% 6. OT descope. PDD said 1-out-of-N OT for decryption key delivery.
+%    Implemented commitment+challenge instead. Seller already sees winning
+%    bid via MPC (party 0), so no additional info leak. Discuss as limitation
+%    or pragmatic equivalent?
+%
+% ===========================================
 \section*{Abstract}
 \addcontentsline{toc}{section}{Abstract}
 
-% TODO: Write after the rest of the report is complete.
-% Should cover: problem, approach, key results, conclusions.
-% Target: 200 words.
+Bidder privacy is absent from mainstream online auctions.  Open-bid platforms
+reveal the bidding process to all participants; sealed-bid schemes hide bid
+values but still require a trusted auctioneer who sees every bid.  In both
+models, losing bidders' information is unnecessarily exposed, and metadata ---
+who bid, when, how often --- is visible to platform operators and network
+observers.  This project explored whether a fully decentralised auction could
+protect bidder privacy without any trusted intermediary.
 
-\textit{[To be written last. Summarise the problem (lack of privacy in online auctions),
-the approach (Veilid P2P framework + MP-SPDZ multiparty computation + sealed-bid protocol),
-key results (working prototype, N-party auctions tested, security analysis of side channels),
-and main conclusions.]}
+A peer-to-peer sealed-bid marketplace was built on Veilid, a privacy-first
+application framework providing onion-routed messaging, a secure distributed
+hash table, and public-key identities with no central server.  Bids are
+cryptographically committed and the winner is determined jointly by all
+participants using the MASCOT multi-party computation protocol, so that losing
+bid values are never revealed to anyone.  Network-level privacy is provided by
+Veilid's private routing, which obscures participants' IP addresses and
+locations.  Even the seller, who learns the winning bid value, receives only an
+ephemeral onion route to the winner --- not their identity.
+
+The prototype was implemented in Rust (approximately 14,800 lines of original
+code) and tested on a 20-node devnet with automated end-to-end auction
+scenarios.  A security analysis identified residual privacy limitations: bid
+timing can leak party assignments, participation metadata is visible on the
+DHT, and any single party going offline during MPC execution prevents the
+auction from completing.
+
+
+% Scope the definitions to be strict!
+% Metadata about bids / What are you trying to protect, who are you trying to protect it from?`
