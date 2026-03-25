@@ -80,12 +80,22 @@ build-playground: ## Build veilid-server + ipspoof + playground binary
 
 # ── Demo ─────────────────────────────────────────────────────────────────────
 demo: build-playground build-mpspdz build-release ## Full demo: build, start playground devnet, launch 3 nodes
-	@echo "Starting playground devnet (20 nodes)..."; \
-	$(VEILID_DIR)/target/release/veilid-playground \
-		--nodes 20 --base-port 5150 --clean \
+	@echo "Cleaning previous playground data..."; \
+	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
+	echo "Starting playground devnet (20 nodes)..."; \
+	$(VEILID_DIR)/target/release/veilid-playground start 20 \
+		--ipspoof $(IPSPOOF_SO) \
 		--veilid-server $(VEILID_DIR)/target/release/veilid-server & \
 	PLAYGROUND_PID=$$!; \
-	sleep 15; \
+	echo "Waiting for devnet nodes..."; \
+	for i in $$(seq 1 60); do \
+		all_up=true; \
+		for port in $$(seq 5150 5169); do \
+			timeout 1 bash -c "echo >/dev/tcp/127.0.0.1/$$port" 2>/dev/null || { all_up=false; break; }; \
+		done; \
+		if [ "$$all_up" = true ]; then echo "Devnet ready (20/20 nodes)"; break; fi; \
+		sleep 1; \
+	done; \
 	echo ""; \
 	echo "Starting 3-node market cluster..."; \
 	echo "  Node 20 -> port 5170, IP 1.2.3.21 (Bidder 1)"; \
