@@ -4,7 +4,7 @@
 #
 #   make help         — show available targets
 #   make build        — debug build of market crate
-#   make demo         — full devnet demo (build → start → run 3 nodes)
+#   make demo         — playground devnet demo (build → start → run 3 nodes)
 #   make bench        — run all benchmarks and generate plots
 # =============================================================================
 
@@ -16,15 +16,10 @@ REPOS_DIR    := $(ROOT_DIR)Repos
 MARKET_DIR   := $(REPOS_DIR)/dissertationapp/market
 MP_SPDZ_DIR  := $(REPOS_DIR)/MP-SPDZ
 VEILID_DIR   := $(REPOS_DIR)/veilid
-IPSPOOF_SRC  := $(VEILID_DIR)/.devcontainer/scripts/ip_spoof.c
-IPSPOOF_SO   := $(VEILID_DIR)/.devcontainer/scripts/libipspoof.so
-COMPOSE_FILE := $(VEILID_DIR)/.devcontainer/compose/docker-compose.dev.yml
+IPSPOOF_SO   := $(VEILID_DIR)/target/release/libveilid_ipspoof.so
 
-PLAYGROUND_BIN   := $(HOME)/Repos/veilid/target/release/veilid-playground
-PLAYGROUND_DATA  := /tmp/veilid-playground
-
-.PHONY: help install-deps build build-release build-mpspdz build-ipspoof \
-        demo test clean bench bench-clean devnet-up devnet-down
+.PHONY: help install-deps build build-release build-mpspdz build-playground \
+        demo test clean bench bench-clean
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -42,7 +37,7 @@ install-deps: ## Install all system dependencies (requires sudo)
 			openssl xdotool webkit2gtk-4.1 gtk3 libsoup3 \
 			glib2 atk cairo pango gdk-pixbuf2 \
 			gmp libsodium boost boost-libs \
-			automake libtool docker docker-compose; \
+			automake libtool; \
 	elif [ -f /etc/debian_version ]; then \
 		echo "Detected Debian/Ubuntu..."; \
 		sudo apt-get update && sudo apt-get install -y --no-install-recommends \
@@ -55,15 +50,15 @@ install-deps: ## Install all system dependencies (requires sudo)
 			libgmp-dev libsodium-dev \
 			libboost-dev libboost-filesystem-dev \
 			libboost-iostreams-dev libboost-thread-dev \
-			automake libtool docker.io docker-compose; \
+			automake libtool; \
 	elif [ "$$(uname -s)" = "Darwin" ]; then \
 		echo "Detected macOS..."; \
-		brew install cmake openssl gmp libsodium boost automake libtool docker docker-compose; \
+		brew install cmake openssl gmp libsodium boost automake libtool; \
 	else \
 		echo "Unsupported OS. Please install dependencies manually:"; \
 		echo "  C++ toolchain (g++/clang++), cmake, python3, openssl, gmp,"; \
 		echo "  libsodium, boost (filesystem, iostreams, thread),"; \
-		echo "  GTK3/WebKit2GTK 4.1 (for Dioxus desktop), automake, libtool, docker"; \
+		echo "  GTK3/WebKit2GTK 4.1 (for Dioxus desktop), automake, libtool"; \
 		exit 1; \
 	fi
 	@echo ""
@@ -73,42 +68,31 @@ install-deps: ## Install all system dependencies (requires sudo)
 build: ## Build market crate (debug)
 	cargo build --manifest-path $(MARKET_DIR)/Cargo.toml
 
-build-release:
+build-release: ## Build market crate (release)
 	cargo build --release --manifest-path $(MARKET_DIR)/Cargo.toml
 
-build-mpspdz:
+build-mpspdz: ## Build MP-SPDZ (mascot-party.x, shamir-party.x, auction_n)
 	$(ROOT_DIR)setup-mpspdz.sh --mp-spdz-dir $(MP_SPDZ_DIR)
 
-build-ipspoof: $(IPSPOOF_SO)
-
-$(IPSPOOF_SO): $(IPSPOOF_SRC)
-	gcc -shared -fPIC -o $@ $< -ldl
+build-playground: ## Build veilid-server + ipspoof + playground binary
+	cargo build --release --manifest-path $(VEILID_DIR)/Cargo.toml \
+		-p veilid-server -p veilid-ipspoof -p veilid-playground
 
 # ── Demo ─────────────────────────────────────────────────────────────────────
-demo: build-ipspoof build-mpspdz build-release ## Full demo: build, start devnet, launch 3 nodes
-	@docker compose -f $(COMPOSE_FILE) down -v 2>/dev/null; true
-	@rm -rf ~/.local/share/smpc-auction-node-*
-	@docker compose -f $(COMPOSE_FILE) up -d
-	@echo "Waiting for bootstrap to be healthy..."
-	@healthy=false; \
-	for i in $$(seq 1 30); do \
-		if docker compose -f $(COMPOSE_FILE) ps | grep -q healthy; then \
-			healthy=true; break; \
-		fi; \
-		sleep 2; printf "."; \
-	done; echo ""; \
-	if [ "$$healthy" = "false" ]; then \
-		echo "ERROR: Devnet bootstrap did not become healthy after 60 seconds"; \
-		exit 1; \
-	fi
-	@echo ""
-	@echo "Starting 3-node market cluster..."
-	@echo "  Node 20 -> port 5170, IP 1.2.3.21 (Bidder 1)"
-	@echo "  Node 21 -> port 5171, IP 1.2.3.22 (Bidder 2)"
-	@echo "  Node 22 -> port 5172, IP 1.2.3.23 (Auctioneer/Seller)"
-	@echo ""
-	@sleep 10
-	@trap 'kill $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
+demo: build-playground build-mpspdz build-release ## Full demo: build, start playground devnet, launch 3 nodes
+	@echo "Starting playground devnet (20 nodes)..."; \
+	$(VEILID_DIR)/target/release/veilid-playground \
+		--nodes 20 --base-port 5150 --clean \
+		--veilid-server $(VEILID_DIR)/target/release/veilid-server & \
+	PLAYGROUND_PID=$$!; \
+	sleep 15; \
+	echo ""; \
+	echo "Starting 3-node market cluster..."; \
+	echo "  Node 20 -> port 5170, IP 1.2.3.21 (Bidder 1)"; \
+	echo "  Node 21 -> port 5171, IP 1.2.3.22 (Bidder 2)"; \
+	echo "  Node 22 -> port 5172, IP 1.2.3.23 (Auctioneer/Seller)"; \
+	echo ""; \
+	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
 		if [ $$offset -eq 22 ]; then \
 			DEMO_ARGS="--demo-role seller --demo-duration 90"; \
@@ -131,40 +115,22 @@ test: ## Run unit + integration tests (mock-based)
 	cargo test --manifest-path $(MARKET_DIR)/Cargo.toml
 
 # ── Clean ────────────────────────────────────────────────────────────────────
-clean: ## Remove all build artifacts, node data, and docker volumes
+clean: ## Remove all build artifacts and node data
 	cargo clean --manifest-path $(MARKET_DIR)/Cargo.toml
 	rm -rf ~/.local/share/smpc-auction-node-*
-	-docker compose -f $(COMPOSE_FILE) down -v 2>/dev/null
+	rm -rf /tmp/veilid-playground*
 	-pkill -f "target/debug/market" 2>/dev/null
 	-pkill -f "target/release/market" 2>/dev/null
-
-# ── Devnet ──────────────────────────────────────────────────────────────────
-devnet-up: ## Start Docker devnet (20 nodes)
-	docker compose -f $(COMPOSE_FILE) up -d
-
-devnet-down: ## Stop Docker devnet and clean volumes
-	docker compose -f $(COMPOSE_FILE) down -v
+	-pkill -f "veilid-server" 2>/dev/null
 
 # ── Benchmarks ──────────────────────────────────────────────────────────
 BENCH_DIR    := $(MARKET_DIR)/scripts/bench
 BENCH_OUT    := $(MARKET_DIR)/bench-results
 BENCH_ITERS  ?= 5
-BENCH_DEVNET_MODE ?= docker
 BENCH_DEVNET_SIZES ?= 40 60 80
-BENCH_WARMUP_SECS ?= 60
+BENCH_WARMUP_SECS ?= 20
 
-# Ipspoof: use Rust ipspoof for playground, C ipspoof for Docker
-PLAYGROUND_IPSPOOF := $(HOME)/Repos/veilid/target/release/libveilid_ipspoof.so
-ifeq ($(BENCH_DEVNET_MODE),playground)
-  BENCH_IPSPOOF := $(PLAYGROUND_IPSPOOF)
-else
-  BENCH_IPSPOOF := $(IPSPOOF_SO)
-endif
-
-bench: build-mpspdz build-release ## Run all benchmarks (direct + Veilid) and generate plots
-ifeq ($(BENCH_DEVNET_MODE),docker)
-	$(MAKE) build-ipspoof
-endif
+bench: build-mpspdz build-release build-playground ## Run all benchmarks (direct + Veilid) and generate plots
 	@echo "=== Phase 1: Direct MPC (localhost, no Veilid) ==="
 	cd $(MARKET_DIR) && \
 	BENCH_ITERS=$(BENCH_ITERS) \
@@ -174,12 +140,12 @@ endif
 	@echo ""
 	@echo "=== Phase 2: MASCOT over Veilid (3-10 parties, devnet $(BENCH_DEVNET_SIZES)) ==="
 	cd $(MARKET_DIR) && \
-	LD_PRELOAD=$(BENCH_IPSPOOF) \
+	LD_PRELOAD=$(IPSPOOF_SO) \
 	MP_SPDZ_DIR=$(MP_SPDZ_DIR) \
 	BENCH_ITERS=$(BENCH_ITERS) \
 	BENCH_PARTIES="3 4 5 6 8 10" \
 	BENCH_DEVNET_SIZES="$(BENCH_DEVNET_SIZES)" \
-	BENCH_DEVNET_MODE=$(BENCH_DEVNET_MODE) \
+	BENCH_DEVNET_MODE=playground \
 	BENCH_WARMUP_SECS=$(BENCH_WARMUP_SECS) \
 	BENCH_MPC_PROTOCOL=mascot \
 	MPC_PROTOCOL=mascot-party.x \
@@ -188,12 +154,12 @@ endif
 	@echo ""
 	@echo "=== Phase 3: Shamir over Veilid (3-20 parties, devnet $(BENCH_DEVNET_SIZES)) ==="
 	cd $(MARKET_DIR) && \
-	LD_PRELOAD=$(BENCH_IPSPOOF) \
+	LD_PRELOAD=$(IPSPOOF_SO) \
 	MP_SPDZ_DIR=$(MP_SPDZ_DIR) \
 	BENCH_ITERS=$(BENCH_ITERS) \
 	BENCH_PARTIES="3 4 5 6 8 10 15 20" \
 	BENCH_DEVNET_SIZES="$(BENCH_DEVNET_SIZES)" \
-	BENCH_DEVNET_MODE=$(BENCH_DEVNET_MODE) \
+	BENCH_DEVNET_MODE=playground \
 	BENCH_WARMUP_SECS=$(BENCH_WARMUP_SECS) \
 	BENCH_MPC_PROTOCOL=shamir \
 	MPC_PROTOCOL=shamir-party.x \
