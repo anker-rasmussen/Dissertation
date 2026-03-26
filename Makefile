@@ -155,7 +155,6 @@ bench: build-mpspdz build-release build-playground ## Run all benchmarks (direct
 	BENCH_ITERS=$(BENCH_ITERS) \
 	BENCH_PARTIES="3 4 5 6 8 10" \
 	BENCH_DEVNET_SIZES="$(BENCH_DEVNET_SIZES)" \
-	BENCH_DEVNET_MODE=playground \
 	BENCH_WARMUP_SECS=$(BENCH_WARMUP_SECS) \
 	BENCH_MPC_PROTOCOL=mascot \
 	MPC_PROTOCOL=mascot-party.x \
@@ -169,7 +168,6 @@ bench: build-mpspdz build-release build-playground ## Run all benchmarks (direct
 	BENCH_ITERS=$(BENCH_ITERS) \
 	BENCH_PARTIES="3 4 5 6 8 10 15 20" \
 	BENCH_DEVNET_SIZES="$(BENCH_DEVNET_SIZES)" \
-	BENCH_DEVNET_MODE=playground \
 	BENCH_WARMUP_SECS=$(BENCH_WARMUP_SECS) \
 	BENCH_MPC_PROTOCOL=shamir \
 	MPC_PROTOCOL=shamir-party.x \
