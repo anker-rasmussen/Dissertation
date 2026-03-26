@@ -1,0 +1,266 @@
+% Benchmark figures for Chapter 5 — Performance Results
+% Generated from bench-results/ CSVs via scripts/preprocess_benchmarks.py
+% Re-run the script after adding new data, then recompile.
+
+% Colour cycle: TU Delft-inspired, accessible
+\definecolor{plotblue}{HTML}{0077BB}
+\definecolor{plotred}{HTML}{CC3311}
+\definecolor{plotorange}{HTML}{EE7733}
+\definecolor{plotcyan}{HTML}{009988}
+\definecolor{plotgrey}{HTML}{888888}
+
+\pgfplotsset{
+  bench base/.style={
+    width=0.88\columnwidth,
+    height=6.5cm,
+    grid=major,
+    grid style={gray!30},
+    tick label style={font=\small},
+    label style={font=\small},
+    legend style={font=\footnotesize, draw=none, fill=white, fill opacity=0.8},
+    every axis plot/.append style={thick, mark size=2pt},
+  },
+}
+
+%% ----------------------------------------------------------------
+%% Figure 1: Direct MPC baseline (no Veilid)
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={Number of parties ($N$)},
+      ylabel={Wall-clock time (s)},
+      ymode=log,
+      log basis y=10,
+      xtick={3,4,5,6,8,10,15,20},
+      legend pos=north west,
+    ]
+    \addplot+[color=plotred, mark=square*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=wall_median, y error=wall_stddev]
+      {Figures/data/direct_mascot.dat};
+    \addlegendentry{MASCOT}
+
+    \addplot+[color=plotblue, mark=triangle*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=wall_median, y error=wall_stddev]
+      {Figures/data/direct_shamir.dat};
+    \addlegendentry{Shamir}
+
+    \addplot+[color=plotgrey, mark=diamond*, only marks, mark size=3pt]
+      table[x=parties, y=wall_median]
+      {Figures/data/direct_rep-ring.dat};
+    \addlegendentry{Rep-ring ($N{=}3$ only)}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Direct MPC computation time (localhost TCP, no Veilid overlay).
+    MASCOT scales quadratically with party count due to pairwise OT setup;
+    Shamir scales linearly.  Error bars show $\pm 1$ standard deviation
+    over 10 iterations.}
+  \label{fig:direct-mpc-baseline}
+\end{figure}
+
+%% ----------------------------------------------------------------
+%% Figure 2: Veilid auction total time — MASCOT
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={Number of parties ($N$)},
+      ylabel={Total auction time (s)},
+      xtick={3,4,5,6,8,10},
+      legend pos=north west,
+      ymin=0,
+    ]
+    \addplot+[color=plotblue, mark=*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=total_median, y error=total_stddev,
+            restrict expr to domain={\thisrow{n_success}}{1:99}]
+      {Figures/data/veilid_mascot_40.dat};
+    \addlegendentry{40-node devnet}
+
+    \addplot+[color=plotorange, mark=square*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=total_median, y error=total_stddev,
+            restrict expr to domain={\thisrow{n_success}}{1:99}]
+      {Figures/data/veilid_mascot_60.dat};
+    \addlegendentry{60-node devnet}
+
+    \addplot+[color=plotred, mark=triangle*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=total_median, y error=total_stddev,
+            restrict expr to domain={\thisrow{n_success}}{1:99}]
+      {Figures/data/veilid_mascot_80.dat};
+    \addlegendentry{80-node devnet}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Total auction time over Veilid using MASCOT
+    (median of successful runs, $\pm 1\sigma$).
+    Route exchange and MPC tunnel latency dominate; the 80-node
+    devnet shows degraded performance from larger routing tables.}
+  \label{fig:veilid-mascot-total}
+\end{figure}
+
+%% ----------------------------------------------------------------
+%% Figure 3: Veilid auction total time — Shamir
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={Number of parties ($N$)},
+      ylabel={Total auction time (s)},
+      xtick={3,4,5,6,8,10,15,20},
+      legend pos=north west,
+      ymin=0,
+    ]
+    \addplot+[color=plotblue, mark=*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=total_median, y error=total_stddev,
+            restrict expr to domain={\thisrow{n_success}}{1:99}]
+      {Figures/data/veilid_shamir_40.dat};
+    \addlegendentry{40-node devnet}
+
+    \addplot+[color=plotorange, mark=square*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=total_median, y error=total_stddev,
+            restrict expr to domain={\thisrow{n_success}}{1:99}]
+      {Figures/data/veilid_shamir_60.dat};
+    \addlegendentry{60-node devnet}
+
+    \addplot+[color=plotred, mark=triangle*,
+      error bars/.cd, y dir=both, y explicit]
+      table[x=parties, y=total_median, y error=total_stddev,
+            restrict expr to domain={\thisrow{n_success}}{1:99}]
+      {Figures/data/veilid_shamir_80.dat};
+    \addlegendentry{80-node devnet}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Total auction time over Veilid using Shamir secret sharing
+    (median of successful runs, $\pm 1\sigma$).
+    Shamir supports up to $N{=}20$ parties.  Only successful
+    iterations are included; timeouts are excluded.}
+  \label{fig:veilid-shamir-total}
+\end{figure}
+
+%% ----------------------------------------------------------------
+%% Figure 4: Time breakdown — route exchange vs MPC (Shamir, 40-node)
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={Number of parties ($N$)},
+      ylabel={Time (s)},
+      ybar stacked,
+      bar width=10pt,
+      xtick={3,4,5,6,8,10,15,20},
+      ymin=0,
+      legend style={at={(0.02,0.98)}, anchor=north west},
+    ]
+    \addplot+[fill=plotblue!70, draw=plotblue,
+      restrict expr to domain={\thisrow{n_success}}{1:99}]
+      table[x=parties, y=route_median]
+      {Figures/data/veilid_shamir_40.dat};
+    \addlegendentry{Route exchange}
+
+    \addplot+[fill=plotred!70, draw=plotred,
+      restrict expr to domain={\thisrow{n_success}}{1:99}]
+      table[x=parties, y=mpc_median]
+      {Figures/data/veilid_shamir_40.dat};
+    \addlegendentry{MPC computation}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Time breakdown for Shamir auctions on a 40-node devnet.
+    Route exchange through Veilid private routes dominates total time;
+    the MPC computation itself (tunnelled over Veilid \texttt{app\_call})
+    accounts for less than 10\% at most party counts.}
+  \label{fig:time-breakdown}
+\end{figure}
+
+
+%% ----------------------------------------------------------------
+%% Figure 6: Overhead factor — cost of privacy
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={Number of parties ($N$)},
+      ylabel={Time (s)},
+      ymode=log,
+      log basis y=10,
+      xtick={3,4,5,6,8,10},
+      legend pos=north west,
+    ]
+    % Direct baselines (dashed)
+    \addplot+[color=plotred, mark=square*, dashed]
+      table[x=parties, y=direct_median]
+      {Figures/data/overhead_mascot.dat};
+    \addlegendentry{MASCOT direct}
+
+    \addplot+[color=plotblue, mark=triangle*, dashed]
+      table[x=parties, y=direct_median]
+      {Figures/data/overhead_shamir.dat};
+    \addlegendentry{Shamir direct}
+
+    % Veilid MPC time (solid)
+    \addplot+[color=plotred, mark=square*]
+      table[x=parties, y=veilid_mpc_median]
+      {Figures/data/overhead_mascot.dat};
+    \addlegendentry{MASCOT over Veilid}
+
+    \addplot+[color=plotblue, mark=triangle*]
+      table[x=parties, y=veilid_mpc_median]
+      {Figures/data/overhead_shamir.dat};
+    \addlegendentry{Shamir over Veilid}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{MPC computation time: direct TCP vs.\ tunnelled through
+    Veilid private routes (40-node devnet, median of successful runs).
+    The Veilid tunnel adds approximately $15{-}19\times$ overhead for
+    MASCOT and $10{-}30\times$ for Shamir, attributable to per-round
+    \texttt{app\_call} latency through onion-routed hops.}
+  \label{fig:overhead}
+\end{figure}
+
+%% ----------------------------------------------------------------
+%% Figure 7: Bandwidth — MASCOT vs Shamir (direct)
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={Number of parties ($N$)},
+      ylabel={Data sent per party (MB)},
+      ymode=log,
+      log basis y=10,
+      xtick={3,4,5,6,8,10,15,20},
+      legend pos=north west,
+    ]
+    \addplot+[color=plotred, mark=square*]
+      table[x=parties, y=data_mb]
+      {Figures/data/direct_mascot.dat};
+    \addlegendentry{MASCOT}
+
+    \addplot+[color=plotblue, mark=triangle*]
+      table[x=parties, y=data_mb]
+      {Figures/data/direct_shamir.dat};
+    \addlegendentry{Shamir}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Per-party data sent during MPC computation (direct TCP).
+    MASCOT's pairwise oblivious transfer requires $O(N^2)$ bandwidth
+    growth (37\,MB at $N{=}3$ to 653\,MB at $N{=}10$), while Shamir's
+    secret-sharing approach grows linearly
+    (0.02\,MB at $N{=}3$ to 1.4\,MB at $N{=}20$).}
+  \label{fig:bandwidth}
+\end{figure}
