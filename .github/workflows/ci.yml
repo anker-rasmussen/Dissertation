@@ -158,8 +158,9 @@ jobs:
         env:
           LD_PRELOAD: ${{ github.workspace }}/Repos/veilid/target/release/libveilid_ipspoof.so
         run: |
+          rm -rf /tmp/veilid-playground
           ${{ github.workspace }}/Repos/veilid/target/release/veilid-playground \
-            start 20 --base-port 5150 --clean \
+            start 20 --base-port 5150 \
             --veilid-server ${{ github.workspace }}/Repos/veilid/target/release/veilid-server \
             &
           echo $! > /tmp/playground.pid
@@ -171,8 +172,8 @@ jobs:
               sleep 0.5
             done
           done
-          echo "Playground healthy (20 nodes). Warming up (15s)..."
-          sleep 15
+          echo "Playground healthy (20 nodes). Warming up (60s for 0.5.3 bootstrap)..."
+          sleep 60
 
       - name: E2E smoke tests
         env:
