@@ -102,24 +102,32 @@ if [ ${#MISSING[@]} -gt 0 ]; then
 fi
 log_success "Prerequisites OK (make, python3, C++ compiler)"
 
-# ── 2. Build mascot-party.x ──────────────────────────────────────────────────
+# ── 2. Build protocol binaries ───────────────────────────────────────────────
+NPROC="${NPROC:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
+
 if [ -f "$MP_SPDZ_DIR/mascot-party.x" ]; then
     log_success "mascot-party.x already built"
 else
     log_info "Building mascot-party.x (this may take a while)..."
-    NPROC="${NPROC:-$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)}"
     make -C "$MP_SPDZ_DIR" -j"$NPROC" mascot-party.x
     log_success "mascot-party.x built"
+fi
+
+if [ -f "$MP_SPDZ_DIR/shamir-party.x" ]; then
+    log_success "shamir-party.x already built"
+else
+    log_info "Building shamir-party.x..."
+    make -C "$MP_SPDZ_DIR" -j"$NPROC" shamir-party.x
+    log_success "shamir-party.x built"
 fi
 
 # ── 3. Ensure Player-Data directory ──────────────────────────────────────────
 mkdir -p "$MP_SPDZ_DIR/Player-Data"
 log_success "Player-Data/ directory exists"
 
-# Note: SSL certificates are NOT needed.  MASCOT uses OT-based key setup
-# and our tunnel proxy routes all inter-party TCP over Veilid (already
-# encrypted).  MP-SPDZ falls back to plaintext sockets when no certs are
-# present in Player-Data/, which is fine for localhost tunnel traffic.
+# Note: Shamir requires SSL certificates in Player-Data/ for its key setup.
+# MASCOT uses OT-based setup and does not need them, but Shamir does.
+# Generate certs with `Scripts/setup-ssl.sh` if Player-Data/P0.pem is missing.
 
 # ── 4. Pre-compile auction_n for 3 parties ───────────────────────────────────
 SCHEDULE_FILE="$MP_SPDZ_DIR/Programs/Schedules/auction_n-3.sch"
@@ -139,6 +147,7 @@ echo -e "${GREEN}  MP-SPDZ Setup Complete${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════${NC}"
 echo ""
 echo "  Directory:    $MP_SPDZ_DIR"
-echo "  Binary:       $([ -f "$MP_SPDZ_DIR/mascot-party.x" ] && echo "OK" || echo "MISSING")"
-echo "  auction_n-3:  $([ -f "$SCHEDULE_FILE" ] && echo "OK" || echo "MISSING")"
+echo "  mascot-party.x:  $([ -f "$MP_SPDZ_DIR/mascot-party.x" ] && echo "OK" || echo "MISSING")"
+echo "  shamir-party.x:  $([ -f "$MP_SPDZ_DIR/shamir-party.x" ] && echo "OK" || echo "MISSING")"
+echo "  auction_n-3:     $([ -f "$SCHEDULE_FILE" ] && echo "OK" || echo "MISSING")"
 echo ""
