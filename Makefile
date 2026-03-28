@@ -16,7 +16,13 @@ REPOS_DIR    := $(ROOT_DIR)Repos
 MARKET_DIR   := $(REPOS_DIR)/dissertationapp/market
 MP_SPDZ_DIR  := $(REPOS_DIR)/MP-SPDZ
 VEILID_DIR   := $(REPOS_DIR)/veilid
-IPSPOOF_SO   := $(VEILID_DIR)/target/release/libveilid_ipspoof.so
+ifeq ($(shell uname -s),Darwin)
+  IPSPOOF_SO     := $(VEILID_DIR)/target/release/libveilid_ipspoof.dylib
+  PRELOAD_VAR    := DYLD_INSERT_LIBRARIES
+else
+  IPSPOOF_SO     := $(VEILID_DIR)/target/release/libveilid_ipspoof.so
+  PRELOAD_VAR    := LD_PRELOAD
+endif
 
 .PHONY: help install-deps build build-release build-mpspdz build-playground \
         demo test clean bench bench-clean
@@ -111,7 +117,7 @@ demo: build-playground build-mpspdz build-release ## Full demo: build, start pla
 		fi; \
 		( \
 			export VEILID_NODE_OFFSET=$$offset; \
-			export LD_PRELOAD=$(IPSPOOF_SO); \
+			export $(PRELOAD_VAR)=$(IPSPOOF_SO); \
 			export RUST_LOG=market=info,veilid_core=warn; \
 			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
 			cd $(MARKET_DIR) && cargo run --release -- $$DEMO_ARGS 2>&1 | sed "s/^/[Node $$offset] /"; \
@@ -150,7 +156,7 @@ bench: build-mpspdz build-release build-playground ## Run all benchmarks (direct
 	@echo ""
 	@echo "=== Phase 2: MASCOT over Veilid (3-10 parties, devnet $(BENCH_DEVNET_SIZES)) ==="
 	cd $(MARKET_DIR) && \
-	LD_PRELOAD=$(IPSPOOF_SO) \
+	$(PRELOAD_VAR)=$(IPSPOOF_SO) \
 	MP_SPDZ_DIR=$(MP_SPDZ_DIR) \
 	BENCH_ITERS=$(BENCH_ITERS) \
 	BENCH_PARTIES="3 4 5 6 8 10" \
@@ -163,7 +169,7 @@ bench: build-mpspdz build-release build-playground ## Run all benchmarks (direct
 	@echo ""
 	@echo "=== Phase 3: Shamir over Veilid (3-20 parties, devnet $(BENCH_DEVNET_SIZES)) ==="
 	cd $(MARKET_DIR) && \
-	LD_PRELOAD=$(IPSPOOF_SO) \
+	$(PRELOAD_VAR)=$(IPSPOOF_SO) \
 	MP_SPDZ_DIR=$(MP_SPDZ_DIR) \
 	BENCH_ITERS=$(BENCH_ITERS) \
 	BENCH_PARTIES="3 4 5 6 8 10 15 20" \
