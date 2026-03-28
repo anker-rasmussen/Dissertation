@@ -18,9 +18,11 @@ A decentralised sealed-bid auction marketplace where bids are committed via SHA-
 ```bash
 git clone --recurse-submodules https://github.com/anker-rasmussen/Dissertation
 cd Dissertation
-make install-deps    # System dependencies (Arch/Debian/macOS)
+make install-deps    # System dependencies (tested on Arch Linux)
 make demo            # Build everything, start devnet, launch 3-node auction
 ```
+
+> **Note:** Developed and tested on Arch Linux. The Makefile includes untested Debian/macOS dependency lists — check `make install-deps` and adjust if needed.
 
 See `Repos/dissertationapp/market/README.md` for detailed build and test instructions.
 
