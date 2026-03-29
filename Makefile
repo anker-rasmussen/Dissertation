@@ -86,8 +86,10 @@ build-playground: ## Build veilid-server + ipspoof + playground binary
 
 # ── Demo ─────────────────────────────────────────────────────────────────────
 demo: build-playground build-mpspdz build-release ## Full demo: build, start playground devnet, launch 3 nodes
-	@echo "Cleaning previous playground data..."; \
+	@echo "Cleaning previous data..."; \
 	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
+	rm -rf /tmp/veilid-playground 2>/dev/null || true; \
+	rm -rf $(HOME)/.local/share/smpc-auction-node-{20,21,22} /tmp/smpc-auction-node-{20,21,22} 2>/dev/null || true; \
 	echo "Starting playground devnet (20 nodes)..."; \
 	$(VEILID_DIR)/target/release/veilid-playground start 20 \
 		--ipspoof $(IPSPOOF_SO) \
@@ -117,6 +119,7 @@ demo: build-playground build-mpspdz build-release ## Full demo: build, start pla
 		fi; \
 		( \
 			export VEILID_NODE_OFFSET=$$offset; \
+			export VEILID_INSECURE_STORAGE=true; \
 			export $(PRELOAD_VAR)=$(IPSPOOF_SO); \
 			export RUST_LOG=market=info,veilid_core=warn; \
 			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
