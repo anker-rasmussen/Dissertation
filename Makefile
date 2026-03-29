@@ -123,7 +123,7 @@ demo: build-playground build-mpspdz build-release ## Full demo: build, start pla
 			export $(PRELOAD_VAR)=$(IPSPOOF_SO); \
 			export RUST_LOG=market=info,veilid_core=warn; \
 			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
-			cd $(MARKET_DIR) && cargo run --release -- $$DEMO_ARGS 2>&1 | sed "s/^/[Node $$offset] /"; \
+			$(MARKET_DIR)/target/release/market $$DEMO_ARGS 2>&1 | sed "s/^/[Node $$offset] /"; \
 		) & \
 		sleep 2; \
 	done; \
