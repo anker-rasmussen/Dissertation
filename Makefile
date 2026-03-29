@@ -25,7 +25,7 @@ else
 endif
 
 .PHONY: help install-deps build build-release build-mpspdz build-playground \
-        demo test clean bench bench-clean
+        run demo test clean bench bench-clean
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -85,7 +85,42 @@ build-playground: ## Build veilid-server + ipspoof + playground binary
 		-p veilid-server -p veilid-ipspoof -p veilid-playground
 
 # ── Demo ─────────────────────────────────────────────────────────────────────
-demo: build-playground build-mpspdz build-release ## Full demo: build, start playground devnet, launch 3 nodes
+run: build-playground build-mpspdz build-release ## Launch 3 interactive nodes (no auto-demo)
+	@echo "Cleaning previous data..."; \
+	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
+	rm -rf /tmp/veilid-playground 2>/dev/null || true; \
+	rm -rf $(HOME)/.local/share/smpc-auction-node-{20,21,22} /tmp/smpc-auction-node-{20,21,22} "$(HOME)/Library/Application Support"/smpc-auction-node-{20,21,22} 2>/dev/null || true; \
+	echo "Starting playground devnet (20 nodes)..."; \
+	$(VEILID_DIR)/target/release/veilid-playground start 20 \
+		--ipspoof $(IPSPOOF_SO) \
+		--veilid-server $(VEILID_DIR)/target/release/veilid-server & \
+	PLAYGROUND_PID=$$!; \
+	echo "Waiting for devnet nodes..."; \
+	for i in $$(seq 1 60); do \
+		all_up=true; \
+		for port in $$(seq 5150 5169); do \
+			(echo > /dev/tcp/127.0.0.1/$$port) 2>/dev/null || { all_up=false; break; }; \
+		done; \
+		if [ "$$all_up" = true ]; then echo "Devnet ready (20/20 nodes)"; break; fi; \
+		sleep 1; \
+	done; \
+	echo ""; \
+	echo "Launching 3 market nodes..."; \
+	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
+	for offset in 20 21 22; do \
+		( \
+			export VEILID_NODE_OFFSET=$$offset; \
+			export VEILID_INSECURE_STORAGE=true; \
+			export $(PRELOAD_VAR)=$(IPSPOOF_SO); \
+			export RUST_LOG=market=info,veilid_core=warn; \
+			export MP_SPDZ_DIR=$(MP_SPDZ_DIR); \
+			cd $(MARKET_DIR) && cargo run --release 2>&1 | sed "s/^/[Node $$offset] /"; \
+		) & \
+		sleep 2; \
+	done; \
+	wait
+
+demo: build-playground build-mpspdz build-release ## Full demo: build, start playground devnet, launch 3 nodes (auto-auction)
 	@echo "Cleaning previous data..."; \
 	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
 	rm -rf /tmp/veilid-playground 2>/dev/null || true; \
