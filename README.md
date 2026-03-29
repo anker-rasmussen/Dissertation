@@ -22,7 +22,7 @@ make install-deps    # System dependencies (tested on Arch Linux)
 make demo            # Build everything, start devnet, launch 3-node auction
 ```
 
-> **Note:** Developed and tested on Arch Linux. The Makefile includes untested Debian/macOS dependency lists — check `make install-deps` and adjust if needed.
+> **Note:** Tested on Arch Linux and macOS. The Makefile includes a Debian dependency list — check `make install-deps` and adjust if needed.
 
 See `Repos/dissertationapp/market/README.md` for detailed build and test instructions.
 
