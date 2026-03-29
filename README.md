@@ -11,7 +11,6 @@ A decentralised sealed-bid auction marketplace where bids are committed via SHA-
 | `Repos/dissertationapp/market/` | Main Rust crate — P2P auction marketplace |
 | `Repos/MP-SPDZ/` | MP-SPDZ framework (submodule, BSD-3-Clause) |
 | `Repos/veilid/` | Veilid P2P framework (submodule, MPL-2.0) |
-| `Dissertation/` | LaTeX report sources |
 
 ## Quick Start
 
@@ -19,12 +18,11 @@ A decentralised sealed-bid auction marketplace where bids are committed via SHA-
 git clone --recurse-submodules https://github.com/anker-rasmussen/Dissertation
 cd Dissertation
 make install-deps    # System dependencies (tested on Arch Linux)
-make demo            # Build everything, start devnet, launch 3-node auction
+make run             # Build everything, start devnet, launch 3 interactive nodes
+make demo            # Same as above, but with automated auction demo
 ```
 
 > **Note:** Tested on Arch Linux and macOS. The Makefile includes a Debian dependency list — check `make install-deps` and adjust if needed.
-
-See `Repos/dissertationapp/market/README.md` for detailed build and test instructions.
 
 ## License
 
