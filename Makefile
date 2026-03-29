@@ -87,6 +87,9 @@ build-playground: ## Build veilid-server + ipspoof + playground binary
 # ── Demo ─────────────────────────────────────────────────────────────────────
 run: build-playground build-mpspdz build-release ## Launch 3 interactive nodes (no auto-demo)
 	@echo "Cleaning previous data..."; \
+	pkill -f veilid-server 2>/dev/null || true; \
+	pkill -f "target/release/market" 2>/dev/null || true; \
+	sleep 1; \
 	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
 	rm -rf /tmp/veilid-playground 2>/dev/null || true; \
 	rm -rf $(HOME)/.local/share/smpc-auction-node-{20,21,22} /tmp/smpc-auction-node-{20,21,22} "$(HOME)/Library/Application Support"/smpc-auction-node-{20,21,22} 2>/dev/null || true; \
@@ -106,7 +109,7 @@ run: build-playground build-mpspdz build-release ## Launch 3 interactive nodes (
 	done; \
 	echo ""; \
 	echo "Launching 3 market nodes..."; \
-	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
+	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; pkill -f veilid-server 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
 		( \
 			export VEILID_NODE_OFFSET=$$offset; \
@@ -122,6 +125,9 @@ run: build-playground build-mpspdz build-release ## Launch 3 interactive nodes (
 
 demo: build-playground build-mpspdz build-release ## Full demo: build, start playground devnet, launch 3 nodes (auto-auction)
 	@echo "Cleaning previous data..."; \
+	pkill -f veilid-server 2>/dev/null || true; \
+	pkill -f "target/release/market" 2>/dev/null || true; \
+	sleep 1; \
 	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
 	rm -rf /tmp/veilid-playground 2>/dev/null || true; \
 	rm -rf $(HOME)/.local/share/smpc-auction-node-{20,21,22} /tmp/smpc-auction-node-{20,21,22} "$(HOME)/Library/Application Support"/smpc-auction-node-{20,21,22} 2>/dev/null || true; \
@@ -145,7 +151,7 @@ demo: build-playground build-mpspdz build-release ## Full demo: build, start pla
 	echo "  Node 21 -> port 5171, IP 1.2.3.22 (Bidder 2)"; \
 	echo "  Node 22 -> port 5172, IP 1.2.3.23 (Auctioneer/Seller)"; \
 	echo ""; \
-	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; wait' EXIT INT TERM; \
+	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; pkill -f veilid-server 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
 		if [ $$offset -eq 22 ]; then \
 			DEMO_ARGS="--demo-role seller --demo-duration 90"; \
