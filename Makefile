@@ -87,8 +87,9 @@ build-playground: ## Build veilid-server + ipspoof + playground binary
 # ── Demo ─────────────────────────────────────────────────────────────────────
 run: build-playground build-mpspdz build-release ## Launch 3 interactive nodes (no auto-demo)
 	@echo "Cleaning previous data..."; \
-	pkill -f veilid-server 2>/dev/null || true; \
-	pkill -f "target/release/market" 2>/dev/null || true; \
+	pkill -x veilid-server 2>/dev/null || true; \
+	pkill -x market 2>/dev/null || true; \
+	pkill -x market-headless 2>/dev/null || true; \
 	sleep 1; \
 	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
 	rm -rf /tmp/veilid-playground 2>/dev/null || true; \
@@ -109,7 +110,7 @@ run: build-playground build-mpspdz build-release ## Launch 3 interactive nodes (
 	done; \
 	echo ""; \
 	echo "Launching 3 market nodes..."; \
-	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; pkill -f veilid-server 2>/dev/null; wait' EXIT INT TERM; \
+	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; pkill -x veilid-server 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
 		( \
 			export VEILID_NODE_OFFSET=$$offset; \
@@ -125,8 +126,9 @@ run: build-playground build-mpspdz build-release ## Launch 3 interactive nodes (
 
 demo: build-playground build-mpspdz build-release ## Full demo: build, start playground devnet, launch 3 nodes (auto-auction)
 	@echo "Cleaning previous data..."; \
-	pkill -f veilid-server 2>/dev/null || true; \
-	pkill -f "target/release/market" 2>/dev/null || true; \
+	pkill -x veilid-server 2>/dev/null || true; \
+	pkill -x market 2>/dev/null || true; \
+	pkill -x market-headless 2>/dev/null || true; \
 	sleep 1; \
 	$(VEILID_DIR)/target/release/veilid-playground clean 2>/dev/null || true; \
 	rm -rf /tmp/veilid-playground 2>/dev/null || true; \
@@ -151,7 +153,7 @@ demo: build-playground build-mpspdz build-release ## Full demo: build, start pla
 	echo "  Node 21 -> port 5171, IP 1.2.3.22 (Bidder 2)"; \
 	echo "  Node 22 -> port 5172, IP 1.2.3.23 (Auctioneer/Seller)"; \
 	echo ""; \
-	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; pkill -f veilid-server 2>/dev/null; wait' EXIT INT TERM; \
+	trap 'kill $$PLAYGROUND_PID $$(jobs -p) 2>/dev/null; pkill -x veilid-server 2>/dev/null; wait' EXIT INT TERM; \
 	for offset in 20 21 22; do \
 		if [ $$offset -eq 22 ]; then \
 			DEMO_ARGS="--demo-role seller --demo-duration 90"; \
@@ -179,9 +181,9 @@ clean: ## Remove all build artifacts and node data
 	cargo clean --manifest-path $(MARKET_DIR)/Cargo.toml
 	rm -rf ~/.local/share/smpc-auction-node-*
 	rm -rf /tmp/veilid-playground*
-	-pkill -f "target/debug/market" 2>/dev/null
-	-pkill -f "target/release/market" 2>/dev/null
-	-pkill -f "veilid-server" 2>/dev/null
+	-pkill -x market 2>/dev/null
+	-pkill -x market-headless 2>/dev/null
+	-pkill -x veilid-server 2>/dev/null
 
 # ── Benchmarks ──────────────────────────────────────────────────────────
 BENCH_DIR    := $(MARKET_DIR)/scripts/bench
@@ -250,4 +252,4 @@ wordcount: ## Update dissertation word count (writes Dissertation/wordcount.tex)
 	echo "Word count: $$WC"
 
 pdf: wordcount ## Build dissertation PDF
-	cd $(DISS_DIR) && latexmk -pdf Dissertation.tex
+	cd $(DISS_DIR) && latexmk Dissertation.tex
