@@ -1,0 +1,282 @@
+% Appendix D: Generative AI Usage Declaration — Handbook 9.7
+\section{Generative AI Usage}
+\label{app:ai}
+
+This appendix declares the use of generative AI tools during the project,
+in accordance with the department's policy on generative AI (Handbook
+Section~9.7).
+
+\subsection*{Tools Used}
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Tool} & \textbf{Provider} \\
+\hline
+Claude Code (Opus 4) & Anthropic \\
+\hline
+\end{tabular}
+\caption{Generative AI tools used.}
+\end{table}
+
+\subsection*{How AI Was Used}
+
+The following describes how Claude Code was used during the project, in
+chronological order of development.  In each case the prompt was given
+within the context of the full project codebase.  All core application logic (auction coordination, MPC orchestration,
+Veilid integration, cryptographic protocols) was designed and written by
+the author.  Claude Code was used primarily for infrastructure and
+tooling (devnet setup, build scripts, UI), refactoring, and debugging.
+All code, whether AI-generated or hand-written, was reviewed, tested,
+and committed by the author.  All prose in this report was written by
+the author; Claude Code was used only for cross-referencing and gap
+analysis.
+
+\begin{enumerate}
+  % --- Nov 2025: project setup ---
+  \item \textbf{Docker devnet bootstrap.}\\
+    \textit{Prompt:} ``The Veilid devnet merge request doesn't work.
+    Nodes fail to bootstrap.  Here's the docker-compose and the error
+    output: [pasted logs].''\\
+    \textit{Output:} Claude iterated on the Docker Compose configuration,
+    bootstrap entrypoint scripts, network key settings, and DNS
+    configuration.\\
+    \textit{What was done:} The author tested each iteration against the
+    actual Veilid bootstrap process, feeding error logs back across
+    multiple rounds until the 20-node devnet started reliably.
+
+  % --- Jan 2026: core infrastructure ---
+  \item \textbf{IP spoofing LD\_PRELOAD library.}\\
+    \textit{Prompt:} ``Write a C LD\_PRELOAD library that intercepts
+    \texttt{bind()}, \texttt{connect()}, \texttt{sendto()}, and
+    \texttt{recvfrom()} to translate fake public IPs (1.2.3.x) to
+    localhost, so multiple Veilid nodes can run on one machine.''\\
+    \textit{Output:} Claude generated \texttt{ip\_spoof.c} with the
+    socket interception logic and address translation table.\\
+    \textit{What was done:} The author reviewed the implementation,
+    tested it against the devnet, and later extended it with NAT table
+    support for Tailscale.  The library was subsequently ported to Rust
+    by Claude for the veilid-playground project.
+
+  \item \textbf{Connecting market nodes to the devnet.}\\
+    \textit{Prompt:} ``Now adapt the market application's Veilid node
+    config to connect to this dockerised devnet.''\\
+    \textit{Output:} Claude generated the node configuration changes:
+    network key, bootstrap address, port offsets, and capability flags.\\
+    \textit{What was done:} The author tested the connection against the
+    running devnet and iterated on capability settings.
+
+  \item \textbf{Dioxus UI: initial layout.}\\
+    \textit{Prompt:} ``Build a Dioxus desktop UI with three panels:
+    marketplace listings, active auctions, and a bid submission form.
+    Use the AppState struct in src/app/state.rs.''\\
+    \textit{Output:} Claude generated the Dioxus component hierarchy
+    (\texttt{src/app/components.rs}, \texttt{src/app/mod.rs}) with
+    state bindings.\\
+    \textit{What was done:} The author reviewed the generated code,
+    adjusted the layout, and integrated it with the Veilid node
+    lifecycle.
+
+  \item \textbf{Dioxus UI: stylesheet refactor.}\\
+    \textit{Prompt:} ``Refactor the inline styles into a Dioxus
+    stylesheet.''\\
+    \textit{Output:} Claude extracted all inline styles into a
+    centralised stylesheet.\\
+    \textit{What was done:} The author reviewed and committed the
+    refactor.
+
+  \item \textbf{Build scripting: 3-node demo.}\\
+    \textit{Prompt:} ``Write a Makefile target that starts a 3-node demo:
+    builds the release binary, starts the devnet, then launches 3 market
+    nodes with offsets 20--22 using LD\_PRELOAD.''\\
+    \textit{Output:} Claude generated the \texttt{make demo} target
+    with process management and SIGTERM cleanup.\\
+    \textit{What was done:} The author tested the target, fixed a
+    platform-specific issue on Linux, and committed it.
+
+  % --- Feb 2026: architecture cleanup ---
+  \item \textbf{Unit and integration test harness.}\\
+    \textit{Prompt:} ``Set up a mock-based test infrastructure so I can
+    simulate $N$-party auctions without a real devnet.''\\
+    \textit{Output:} Claude generated \texttt{MockDht},
+    \texttt{MockTime}, \texttt{MockRandom}, and the
+    \texttt{MultiPartyHarness} for running full auction flows in
+    under 1\,s.\\
+    \textit{What was done:} The author reviewed the mock implementations,
+    verified they matched real Veilid DHT semantics, and built
+    integration tests on top of them.
+
+  \item \textbf{Two-tier registry refactor.}\\
+    \textit{Prompt:} ``The shared DHT registry lets any party delete
+    others' listings.  Refactor to a two-tier registry-of-registries
+    pattern with per-seller owned records.''\\
+    \textit{Output:} Claude restructured the registry into per-seller
+    DHT records with a top-level catalog.\\
+    \textit{What was done:} The author verified the permission model
+    and tested multi-seller scenarios.
+
+  \item \textbf{Codebase cleanup and refactoring.}\\
+    \textit{Prompt:} ``Remove all dead code, collapse unnecessary
+    generic parameters, deduplicate test helpers, and get clippy passing
+    with pedantic lints.''\\
+    \textit{Output:} Claude produced a series of refactoring patches:
+    collapsing \texttt{AuctionLogic<D,T,M,C>} to \texttt{<D,C>},
+    deleting unused traits and mock self-tests, renaming
+    \texttt{MpcSidecar} to \texttt{MpcTunnelProxy}, deduplicating
+    broadcast helpers, unifying \texttt{MockDht} types, and dropping
+    \texttt{async-std} in favour of Tokio.  Net result: $-$2,877 lines
+    across six commits.\\
+    \textit{What was done:} The author reviewed each patch, verified
+    all 169 unit and 63 integration tests still passed, and committed
+    as six logical commits.
+
+  \item \textbf{Error hardening.}\\
+    \textit{Prompt:} ``Audit the codebase for panics and unwraps in
+    production code paths.  Replace with proper error handling.''\\
+    \textit{Output:} Claude identified unsafe \texttt{unwrap()} calls
+    in node configuration, string indexing, and insecure storage setup,
+    and generated replacements using \texttt{Result} propagation.\\
+    \textit{What was done:} The author reviewed each change, confirmed
+    no behaviour regressions, and committed the fixes.
+
+  \item \textbf{Strict clippy lints.}\\
+    \textit{Prompt:} ``Enable pedantic, nursery, and cargo clippy lint
+    groups and fix everything.''\\
+    \textit{Output:} Claude enabled the lint groups and fixed the
+    resulting warnings across the codebase.\\
+    \textit{What was done:} The author reviewed the changes and
+    committed them.
+
+  % --- Feb 2026: E2E and MPC ---
+  \item \textbf{E2E test debugging: sequential auctions.}\\
+    \textit{Prompt:} ``All 3 E2E tests are failing with route timeout on
+    the second auction.  The first auction completes fine.  Here's the log
+    output: [pasted test log].''\\
+    \textit{Output:} Claude identified that broadcast routes from the
+    first auction were stale by the time the second auction started, and
+    suggested adding a route refresh after MPC completion.\\
+    \textit{What was done:} The author implemented the
+    \texttt{needs\_route\_refresh} AtomicBool flag in
+    \texttt{MpcOrchestrator} based on this diagnosis, then verified the
+    fix resolved the failure.
+
+  \item \textbf{E2E test debugging: concurrent auction deadlock.}\\
+    \textit{Prompt:} ``Two auctions expiring at the same time cause a
+    deadlock.  Here's the log: [pasted log].''\\
+    \textit{Output:} Claude identified that nodes processed expired
+    listings in different orders, and suggested sorting them
+    deterministically by key before sequential processing.\\
+    \textit{What was done:} The author implemented the deterministic
+    sort and verified the deadlock was resolved.
+
+  \item \textbf{Performance optimisation: MPC tunnel pipelining.}\\
+    \textit{Prompt:} ``E2E tests take 900s.  Profile the MPC tunnel
+    and find the bottleneck.''\\
+    \textit{Output:} Claude suggested pipelining \texttt{app\_call}
+    sends with a bounded semaphore (depth 8) instead of sequential
+    send-wait cycles, and reducing polling intervals.\\
+    \textit{What was done:} The author implemented the pipeline in
+    \texttt{MpcTunnelProxy}, tuned the semaphore depth experimentally,
+    and measured a reduction from ${\sim}$900\,s to ${\sim}$570\,s.
+
+  % --- Mar 2026: UI polish ---
+  \item \textbf{Dioxus UI: auction progress indicators.}\\
+    \textit{Prompt:} ``Add visual feedback for the MPC phases: route
+    collection, readiness barrier, and MPC execution.''\\
+    \textit{Output:} Claude generated status indicators showing each
+    phase's progress in the auction view.\\
+    \textit{What was done:} The author wired the indicators to the
+    orchestrator state callbacks and tested them.
+
+  \item \textbf{Dioxus UI: live hex traffic panel.}\\
+    \textit{Prompt:} ``Add a live hexdump display showing the encrypted
+    MPC traffic flowing through the tunnel.  Make it look nice.''\\
+    \textit{Output:} Claude generated a formatted hex viewer component
+    with colour-coded bytes and ASCII sidebar.\\
+    \textit{What was done:} The author integrated it into the auction
+    detail view.
+
+  \item \textbf{Dioxus UI: dark theme and 3D lattice header.}\\
+    \textit{Prompt:} ``Restyle the UI with a dark theme and add a
+    rotating 3D lattice animation for the header.''\\
+    \textit{Output:} Claude generated the dark-themed CSS and a WebGL
+    lattice animation.\\
+    \textit{What was done:} The author reviewed and committed the
+    styling changes.
+
+  \item \textbf{Dioxus UI: graceful shutdown.}\\
+    \textit{Prompt:} ``Handle SIGTERM so the UI and Veilid node shut
+    down cleanly instead of hanging.''\\
+    \textit{Output:} Claude implemented signal handling with Tokio's
+    signal listener and a clean shutdown sequence.\\
+    \textit{What was done:} The author tested the shutdown behaviour
+    with \texttt{make demo} and committed it.
+
+  % --- Mar 2026: benchmarking ---
+  \item \textbf{Benchmark harness.}\\
+    \textit{Prompt:} ``Write a benchmark binary that runs automated
+    multi-party auction trials across configurable party counts and
+    devnet sizes, with CSV output and resume support.''\\
+    \textit{Output:} Claude generated the \texttt{bench-auction} binary
+    and associated shell scripts.\\
+    \textit{What was done:} The author tested the harness across 40, 60,
+    and 80-node devnets and committed it.
+
+  \item \textbf{Veilid playground migration.}\\
+    \textit{Prompt:} ``Migrate the E2E test infrastructure from Docker
+    to the veilid-playground (native processes with LD\_PRELOAD).''\\
+    \textit{Output:} Claude adapted the test helpers to detect and use
+    the playground instead of Docker.\\
+    \textit{What was done:} The author verified E2E tests passed on
+    both Docker and playground backends.
+
+  % --- Mar 2026: security audit ---
+  \item \textbf{Security audit fixes.}\\
+    \textit{Prompt:} ``Audit the codebase for security issues:
+    race conditions, information leakage, serde misconfigurations.''\\
+    \textit{Output:} Claude identified TOCTOU races in MPC session
+    dedup and auction activation, serde annotation issues that could
+    leak key/nonce material, and timing-leak vectors.\\
+    \textit{What was done:} The author reviewed each finding, committed
+    the fixes, and verified tests still passed.
+
+  % --- Mar--Apr 2026: report ---
+  \item \textbf{Benchmark data processing and graphing.}\\
+    \textit{Prompt:} ``Write Python scripts to parse the benchmark CSV
+    files, compute medians and success rates, and output .dat files for
+    pgfplots.''\\
+    \textit{Output:} Claude generated the data processing scripts that
+    produced the \texttt{.dat} files used by the pgfplots charts in
+    Chapter~5.\\
+    \textit{What was done:} The author verified the computed values
+    against the raw CSV data and adjusted chart formatting.
+
+  \item \textbf{LaTeX formatting.}\\
+    \textit{Prompt:} ``Set up the dissertation LaTeX build: XeLaTeX with
+    Aptos font, Harvard-style biblatex, word count automation, pgfplots
+    for benchmark charts.''\\
+    \textit{Output:} Claude configured the document preamble, bibliography
+    style, and pgfplots chart templates.\\
+    \textit{What was done:} The author adjusted formatting to match
+    handbook requirements and populated all content.
+
+  \item \textbf{Report gap analysis.}\\
+    \textit{Prompt:} ``Compare my Ch5 Results against the codebase and
+    benchmark CSVs.  What's missing or inconsistent?''\\
+    \textit{Output:} Claude flagged that several table values used
+    approximate markers where exact data existed in the benchmark CSV,
+    and that the warm/cold devnet distinction had no backing data.\\
+    \textit{What was done:} The author replaced approximate values with
+    exact figures from the CSV and removed the unsupported warm/cold
+    comparison.
+\end{enumerate}
+
+\subsection*{Responsibility}
+
+The author takes full responsibility for the content, accuracy, and
+originality of this report and all project outputs.  AI tools were used as
+assistants, not as authors.  All claims, analyses, and conclusions are the
+author's own.
