@@ -2,17 +2,67 @@
 \section*{Glossary}
 \addcontentsline{toc}{section}{Glossary}
 
-\begin{description}[style=nextline, labelwidth=4cm, leftmargin=4.5cm]
-  \item[AES-GCM] Advanced Encryption Standard -- Galois/Counter Mode. Authenticated encryption scheme.
-  \item[CBOR] Concise Binary Object Representation. A binary data serialization format.
-  \item[DHT] Distributed Hash Table. A decentralized key-value store.
-  \item[HE] Homomorphic Encryption. Encryption supporting computation on ciphertexts.
-  \item[MPC / SMPC] (Secure) Multi-Party Computation. Protocols enabling joint computation over private inputs without revealing them.
-  \item[MP-SPDZ] Multi-Protocol SPDZ. A framework for multi-party computation supporting multiple protocol backends.
-  \item[NAT] Network Address Translation.
-  \item[P2P] Peer-to-Peer.
-  \item[SPDZ] ``Speedz'' protocol for MPC with dishonest majority security.
-  \item[MASCOT] Malicious And Secure Computation using Oblivious Transfer. A dishonest-majority MPC protocol.
-  \item[SSS] Shamir's Secret Sharing. A threshold secret-sharing scheme.
-  \item[Veilid] A privacy-first, open-source P2P application framework with onion routing and a secure DHT.
+\begin{description}[style=nextline, labelwidth=5cm, leftmargin=5.5cm]
+
+  % --- Standard CS (included because project-specific usage) ---
+  \item[AES-256-GCM] Advanced Encryption Standard with 256-bit key in Galois/Counter Mode. An authenticated encryption scheme providing both confidentiality and integrity.
+  \item[Commitment scheme] A two-phase cryptographic protocol: a party first publishes a binding commitment (e.g.\ a hash), then later reveals the committed value. Used here for sealed bids.
+  \item[CRDT] Conflict-Free Replicated Data Type. A data structure designed for distributed systems where multiple nodes can update their own copy independently, and all copies are guaranteed to converge to the same state without coordination. Used in this project as a G-Set (grow-only set) for the bid announcement registry, ensuring that concurrent bid announcements from different nodes merge correctly without conflicts.
+  \item[DHT] Distributed Hash Table. A decentralised key--value store where records are spread across participating nodes rather than held on a single server. Lookups are routed through the network so that no single node needs to store everything.
+  \item[E2E] End-to-end. In this report, refers to tests exercising the full system stack including real Veilid networking.
+  \item[NAT] Network Address Translation. Relevant because Veilid must traverse NATs (carrier-grade or regular) to establish peer connections.
+  \item[P2P] Peer-to-Peer. A network model with no central server; all participants are equal.
+  \item[SHA-256] Secure Hash Algorithm producing a 256-bit digest. Used for bid commitments: $C = \text{SHA-256}(\mathit{bid} \| \mathit{nonce})$.
+  \item[TCP] Transmission Control Protocol. MP-SPDZ parties communicate over TCP; the MPC tunnel proxies TCP over Veilid.
+
+  % --- MPC / Cryptography ---
+  \item[Dishonest majority] An MPC security model tolerating corruption of up to $N{-}1$ of $N$ parties. Stronger than honest majority but more expensive. Used by MASCOT.
+  \item[HE] Homomorphic Encryption. A form of encryption that allows mathematical operations to be performed on encrypted data without decrypting it first. The result, when decrypted, matches the outcome of performing the same operations on the plaintext. Used in some MPC protocols (e.g.\ the original SPDZ) as an alternative to oblivious transfer.
+  \item[Honest majority] An MPC security model requiring that fewer than $N/2$ parties are corrupt. Used by Shamir secret sharing.
+  \item[Integer triples] Pre-computed tuples $(a, b, c)$ where $c = a \cdot b$, shared among MPC parties. Also called Beaver triples. Used in SPDZ/MASCOT to reduce online multiplication to additions and openings, moving expensive computation to an offline preprocessing phase.
+  \item[MAC] Message Authentication Code. In SPDZ/MASCOT, every secret-shared value carries a MAC tag under a global key ($\alpha$) that is itself secret-shared among all parties. When a value is opened, all parties verify the MAC; any tampering by a corrupt party causes the check to fail and the protocol to abort. This is what gives MASCOT its malicious security.
+  \item[Malicious security] An MPC security model where corrupt parties may deviate arbitrarily from the protocol. Stronger than semi-honest security.
+  \item[MASCOT] Malicious And Secure Computation using Oblivious Transfer. A dishonest-majority MPC protocol with malicious security~\cite{keller2016_mascot}.
+  \item[MEV] Miner-Extractable Value. Profit that miners or validators can extract by reordering, inserting, or censoring transactions within a block before it is finalised. In the context of on-chain auctions, MEV enables front-running (seeing a pending bid and placing one's own bid ahead of it) and sandwich attacks (placing transactions both before and after a victim's transaction to artificially move the price and profit from the difference)~\cite{daian2019_flashboys2}.
+  \item[MPC / SMPC] (Secure) Multi-Party Computation. Protocols enabling joint computation over private inputs without revealing them to other parties.
+  \item[MP-SPDZ] Multi-Protocol SPDZ. A framework providing multiple MPC protocol backends from a single high-level program~\cite{mp-spdz}.
+  \item[OT] Oblivious Transfer. A cryptographic primitive where a sender holds $N$ messages and a receiver selects one to receive. The sender learns nothing about which message was chosen, and the receiver learns nothing about the other messages. MASCOT uses OT extensively to generate the correlated randomness (integer triples) needed for secure multiplication.
+  \item[Replicated secret sharing] The simplest multi-party MPC protocol, supporting exactly three parties. Each party holds two of the three shares of every secret value, so any two parties can reconstruct it. Requires an honest majority (at most one corrupt party). Used during early development as a ``hello world'' to validate the MPC integration pipeline.
+  \item[Semi-honest security] An MPC security model assuming corrupt parties follow the protocol but try to learn extra information from intermediate values. Weaker than malicious security.
+  \item[SPDZ] ``Speedz.'' A family of MPC protocols with dishonest-majority security, originally based on somewhat homomorphic encryption~\cite{damgaard2011_spdz}.
+  \item[SSS] Shamir's Secret Sharing. A threshold scheme distributing a secret among $N$ parties such that any $t{+}1$ shares reconstruct it, but $t$ or fewer reveal nothing~\cite{shamir1979_secret_sharing}.
+  \item[TEE] Trusted Execution Environment. A hardware-isolated processor region for secure computation. An alternative to MPC with different trust assumptions~\cite{li2023_secure_comp_tee_survey}.
+  \item[Threshold cryptography] A cryptographic technique where a secret key is split among $N$ parties such that at least $t{+}1$ must cooperate to perform an operation (e.g.\ decryption or signing). No single party can act alone, removing single points of trust. Proposed as future work to eliminate the seller's exclusive control over decryption key release.
+
+  % --- Veilid / Networking ---
+  \item[\texttt{app\_call}] Veilid API for request--response messaging with confirmed delivery. Used for all reliable point-to-point communication in this system.
+  \item[\texttt{app\_message}] Veilid API for fire-and-forget messaging without delivery confirmation. Used only for non-critical broadcasts.
+  \item[I2P] Invisible Internet Project. An anonymity network similar to Tor but designed for internal (``darknet'') services rather than accessing the public internet. Uses garlic routing, a variant of onion routing that bundles multiple messages together for efficiency.
+  \item[IPFS] InterPlanetary File System. A content-addressed P2P storage network with no built-in privacy layer.
+  \item[Onion routing] A network anonymity technique where a message is encrypted in multiple layers (like the layers of an onion), one for each relay node on the path. Each relay strips one layer of encryption and forwards the result to the next hop. No single relay knows both the sender and the final destination, providing sender anonymity.
+  \item[Overlay network] A virtual network built on top of physical infrastructure, where peers form logical links independent of their IP topology.
+  \item[Private route] A Veilid construct: an onion-routed path through relay nodes, represented as an opaque blob that can be published and imported by remote peers.
+  \item[Relay node] A peer in the Veilid overlay that forwards messages on behalf of other nodes without being the sender or final recipient. When a private route is constructed, it passes through one or more relay nodes; each relay strips a layer of encryption and forwards the result. The more relay nodes (hops) in a route, the harder it is to trace the message back to its origin, but each additional hop adds latency.
+  \item[Hop] A single step in an onion-routed path. A message travelling through a private route with two hops passes through two relay nodes between sender and receiver. Veilid defaults to two hops per private route.
+  \item[Route-in-DHT] A coordination pattern where a node writes its private route blob to a DHT record so that remote peers can discover and import it without direct messaging. Adapted from Stigmerge~\cite{stigmerge2024}.
+  \item[Stigmergy] Indirect coordination through a shared environment rather than direct communication. The route-in-DHT pattern is an instance of stigmergy.
+  \item[Tor] The Onion Router. An anonymity network using onion routing and exit nodes, designed for client--server communication rather than P2P.
+  \item[Tunnelling] Encapsulating one protocol inside another to transport it across an intermediate network. Here: TCP-over-Veilid for MPC traffic.
+  \item[Veilid] A privacy-first, open-source P2P application framework providing onion-routed messaging, a secure DHT, and pseudonymous public-key identities (no real names or IP addresses are exposed to other participants)~\cite{veilid_developer_book}.
+
+  % --- Auction ---
+  \item[English auction] An ascending-bid auction where the current highest bid is visible and bidders compete openly until no higher bid is placed.
+  \item[First-price sealed-bid] An auction where bids are secret; the highest bidder wins and pays their bid price.
+  \item[Front-running] An attack where an adversary observes a pending transaction (e.g.\ a bid) before it is finalised and submits their own transaction ahead of it to profit. In blockchain contexts, miners or validators can reorder transactions within a block to achieve this. See also MEV.
+  \item[Sealed-bid auction] An auction where bids remain confidential during submission. Contrasts with open/English auctions.
+  \item[Vickrey auction] A second-price sealed-bid auction: the highest bidder wins but pays the second-highest bid.
+
+  % --- Tools / Formats ---
+  \item[Bincode] A compact binary serialisation format. Used for ephemeral wire messages (\texttt{AuctionMessage} enum).
+  \item[CBOR] Concise Binary Object Representation. A self-describing binary format used for DHT-stored records (listings, bids).
+  \item[Dioxus] A React-inspired Rust framework for building cross-platform desktop applications (v0.7.2 used in this project).
+  \item[Lattice] The peer-to-peer sealed-bid auction marketplace built in this project. Implemented in Rust, runs on the Veilid network, and uses MP-SPDZ for MPC-based winner determination.
+  \item[LD\_PRELOAD] A Unix mechanism for intercepting library calls at runtime. Used here with \texttt{libipspoof.so} to give each Veilid node a unique public-facing IP address on a single machine. Veilid requires each node to appear as a distinct host on the public internet; without IP spoofing, multiple nodes on the same device fail to form separate routing identities.
+  \item[MPL-2.0] Mozilla Public License 2.0. A file-level copyleft licence: modifications to MPL-licensed files must be published under MPL. Used by Veilid.
+
 \end{description}

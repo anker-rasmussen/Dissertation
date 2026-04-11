@@ -5,42 +5,292 @@
 \section{Context}
 \label{sec:context}
 
-% TODO (~1000 words)
-
-\subsection{Online Auction Mechanisms}
-\label{sec:ctx-auctions}
-
-% - eBay proxy bidding: open, incrementally visible [ebay_help_bidding]
-% - Facebook Marketplace: listing+messaging, no formal auction [fb_marketplace_help]
-% - Sealed-bid auctions: first-price vs second-price (Vickrey)
-%   - Privacy advantage: non-winning bids never revealed
-%   - Require trusted auctioneer in traditional setting
-% - Blockchain auctions and front-running / MEV [Daian et al. 2019]
-% - Cryptographic auction protocols that hide losing bids [Sako 2000]
-
 \subsection{Secure Multi-Party Computation}
 \label{sec:ctx-mpc}
 
-% - MPC fundamentals: joint computation without revealing inputs [Evans et al. 2018]
-% - Shamir's Secret Sharing: threshold scheme, honest-majority [Shamir 1979]
-% - MASCOT protocol: dishonest-majority, OT-based, malicious security [Keller et al. 2016]
-% - MP-SPDZ framework: multiple backends, practical performance [Keller 2020]
-% - Real-world deployment: Danish sugar beet auction [Bogetoft et al. 2009]
-% - Efficiency surveys and practical considerations [Feng & Yang 2022; Zhao et al. 2019]
-% - Alternative: TEEs vs MPC [Li et al. 2023]
+MPC enables a set of parties to jointly compute a function over their private
+inputs without revealing those inputs to one
+another~\cite{evans2018_pragmatic_mpc}.  The following definitions use the
+formalisations in Evans et al.~(\citeyear{evans2018_pragmatic_mpc}) and
+Zhao et al.~(\citeyear{zhao2019_secure_mpc}).  Two security models are central
+to this project.
 
-\subsection{Privacy-Preserving Peer-to-Peer Networks}
-\label{sec:ctx-p2p}
+\subsubsection{Shamir Secret Sharing (Honest Majority)}
+\label{sec:ctx-shamir}
 
-% - Veilid framework: privacy-first, onion routing, DHT, no exit nodes [Veilid Developer Book]
-% - Comparison with Tor (exit nodes, not DHT-native), I2P (garlic routing), IPFS (no privacy)
-% - DHT privacy properties in Kademlia-based systems
-% - Metadata minimisation: why transport-layer privacy matters for auctions
+Shamir's Secret Sharing~\cite{shamir1979_secret_sharing} hides a secret $s$
+inside a random polynomial of degree $t$ whose constant term is $s$.  Each
+party receives the polynomial evaluated at a distinct point.  Any $t{+}1$
+parties can reconstruct $s$ via interpolation, but $t$ or fewer learn nothing
+about it.
 
-\subsection{Commitment Schemes and Content Encryption}
-\label{sec:ctx-crypto}
+When used for MPC, the threshold is set to $t < N/2$ (honest majority).
+Addition of shared values is free (each party adds its shares locally),
+while multiplication requires one round of communication per gate, giving
+$O(N)$ messages per multiplication.  This makes Shamir efficient at large
+party counts.  However, if the honest-majority assumption is violated
+($t \geq N/2$ parties are corrupt), the corrupt parties can reconstruct
+every shared secret, and all privacy guarantees are lost.
 
-% - Hash-based commitments: SHA256(value || nonce) — hiding and binding properties
-% - AES-256-GCM for content encryption
-% - Brief mention of CryptoNote / Monero for potential settlement [Saberhagen 2013]
-%   (planned but not implemented — context only)
+\subsubsection{MASCOT (Dishonest Majority)}
+\label{sec:ctx-mascot}
+
+The MASCOT protocol~\cite{keller2016_mascot} is built on the SPDZ
+framework~\cite{damgaard2011_spdz} and provides malicious security tolerating
+up to $N{-}1$ corrupt parties.  The MPC program is expressed as an arithmetic
+circuit: each operation (addition, multiplication, comparison) is a gate, and
+the parties jointly evaluate the circuit by exchanging messages at each gate.
+MASCOT operates in two phases.
+
+\textbf{Offline phase (preprocessing).}  Before any inputs are known, the
+parties generate a pool of authenticated Beaver triples using oblivious
+transfer (OT).  For each pair of parties $(i, j)$, a series of OT instances
+produces correlated random values that, when combined across all pairs, yield
+a globally shared triple $(a, b, c)$ with $c = a \cdot b$.
+
+Every shared value is authenticated with a MAC under a global key $\alpha$
+that is itself secret-shared among all parties~\cite{damgaard2011_spdz}.
+No single party knows $\alpha$, so no party can forge a valid share.
+
+The pairwise nature of OT means the offline phase requires $O(N^2)$
+communication: every pair of parties must exchange OT messages.  This is the
+dominant cost and the reason MASCOT is significantly more expensive than
+Shamir, particularly at higher party counts.
+
+\textbf{Online phase (computation).}  Addition of shared values is free
+(each party adds locally).  Multiplication consumes one pre-computed Beaver
+triple per gate: the parties open masked values that reveal nothing about the
+inputs, then combine the result with the triple to obtain a sharing of the
+product.
+
+The key difference from Shamir is what happens when a value is \emph{opened}
+(revealed to all parties).  Before accepting an opened value $v$, all parties
+perform a MAC check: each party $i$ computes $m_i - v \cdot \alpha_i$ and
+the parties jointly verify that these sum to zero.  If any corrupt party
+modified their share, the MAC check fails with overwhelming probability and
+the protocol aborts.  This is what provides malicious security: corrupt
+parties can deviate arbitrarily from the protocol, but any cheating is
+detected before it affects the output.
+
+A third protocol, replicated secret sharing, splits each secret into three
+additive shares and gives each of the three parties two of them.  It is the
+simplest multi-party scheme but is restricted to exactly three parties with an
+honest majority.  It was used during early development to validate the MPC
+integration pipeline before moving to MASCOT and Shamir for evaluation.
+
+The MP-SPDZ framework~\cite{mp-spdz} provides academic production-grade
+implementations of all three protocols, allowing the same high-level auction
+program to be compiled and executed under different protocol backends.  This
+was central to the evaluation in Chapter~\ref{sec:results}, where the same
+program was benchmarked under MASCOT and Shamir with identical inputs.  Other
+MP-SPDZ backends (semi-honest two-party, BMR garbled circuits, etc.) were not
+tested because they either do not support $N > 2$ parties or solve a different
+threat model than the one defined in Section~\ref{sec:intro-security-policy}.
+
+The Danish sugar-beet auction~\cite{bogetoft2009_mpc_live} remains the most
+prominent real-world MPC deployment for auctions, using a three-party
+honest-majority protocol.  That system relied on a small number of known,
+trusted intermediaries and a direct TCP network.  This project extended the
+concept to an untrusted, peer-to-peer setting where the honest-majority
+assumption may not hold, motivating the comparison between MASCOT and Shamir.
+
+Zhao et al.~\cite{zhao2019_secure_mpc} survey MPC theory and applications.
+Feng and Yang~\cite{feng2022_concretely_efficient_mpc} provide concrete
+efficiency benchmarks, noting that the choice between honest and dishonest
+majority remains the dominant factor in practical performance.  Li et
+al.~\cite{li2023_secure_comp_tee_survey} compare MPC with trusted execution
+environments (TEEs), concluding that MPC provides stronger trust assumptions
+at the cost of higher communication overhead.
+
+\subsection{Veilid: Privacy-Preserving Peer-to-Peer Networking}
+\label{sec:ctx-veilid}
+
+Veilid is described by its developers as
+\begin{quote}
+``an open-source, peer-to-peer application framework designed to build
+privacy for all''~\cite{veilid_website}.
+\end{quote}
+Each application embeds a Veilid node into a global overlay where peers are
+equal (no privileged relays), connections are end-to-end encrypted, and
+private routing obscures network locations.
+
+Three capabilities made Veilid suitable for this project:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Addressable encrypted endpoints} keyed by public keys rather
+    than IP addresses, eliminating direct IP exposure.
+  \item \textbf{A secure DHT} for publishing listings, bids, and discovering
+    auction participants.
+  \item \textbf{Onion-routed private routes} for point-to-point messaging
+    that limit metadata exposure during bid submission and MPC tunnel traffic.
+\end{enumerate}
+
+\subsubsection{What Veilid Protects (and What It Does Not)}
+\label{sec:ctx-veilid-security}
+
+Veilid's private routes provide network-layer anonymity: a sender constructs
+a multi-hop route through relay nodes, and the receiver sees only the last
+hop's identity.  This protects participants' IP addresses from each other and
+from passive network observers.  However, several limitations were relevant to
+the security policy:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Anonymity set}: Privacy depends on the number of available
+    relay nodes.  On a small devnet (20--80 nodes), the anonymity set is
+    correspondingly small.  On the public Veilid network this would be larger
+    but remains unquantified.
+  \item \textbf{DHT metadata}: Writing a bid record to the DHT is observable
+    by DHT nodes.  The \emph{number} and \emph{timing} of bids are visible
+    even though \emph{values} are encrypted.
+  \item \textbf{Route liveness}: Private routes are application-managed and
+    can die silently.  There is no notification when a remote route becomes
+    invalid; sending to a dead route fails only after a timeout.  This had
+    significant implications for MPC integration
+    (Section~\ref{sec:results-mpc}).
+  \item \textbf{IP leakage without private routes}: If a node communicates
+    using unsafe routing (direct node-to-node), its IP address is exposed on
+    the wire.  All benchmarked messaging in this system used safe routing
+    exclusively.
+\end{itemize}
+
+Table~\ref{tab:overlay-comparison} compares Veilid with three alternative
+overlay networks that offer similar privacy properties.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.3}
+\makebox[\textwidth][c]{%
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\textbf{Property} & \textbf{Tor} & \textbf{I2P} & \textbf{IPFS} & \textbf{Veilid} \\
+\hline
+Primary model     & Client--server (exit nodes) & Internal services & Content-addressed storage & P2P application framework \\
+\hline
+Anonymity routing & Onion circuits (3 hops)     & Garlic routing     & None (cleartext DHT)      & Onion-routed private routes \\
+\hline
+Built-in DHT      & Hidden-service descriptors  & LeaseSet/NetDB     & Content routing            & General-purpose key--value \\
+\hline
+Embeddable library & No (SOCKS proxy)           & Partial (I2CP)     & Yes (libp2p)               & Yes (veilid-core) \\
+\hline
+P2P messaging     & Via hidden services         & Via streaming lib   & No                         & \texttt{app\_call} / \texttt{app\_message} \\
+\hline
+\end{tabular}}%
+\caption{Overlay network comparison.}
+\label{tab:overlay-comparison}
+\end{table}
+
+Tor~\cite{dingledine2004_tor} provides strong anonymity through onion-routed
+circuits but is designed for the client--server model: clients reach clearnet
+servers via exit nodes, or hidden services via rendezvous points.  Building a
+peer-to-peer auction on Tor would require running each participant as a hidden
+service, managing circuit lifecycle externally, and implementing DHT storage
+separately.  Tor's hidden services also impose a minimum of six hops per
+connection (three per side), adding latency that compounds across MPC rounds.
+
+I2P~\cite{zantout2011_i2p} is closer to a P2P model, using garlic routing to
+bundle messages for internal (``eepsite'') services.  Its streaming library
+supports bidirectional TCP-like connections between I2P destinations.  However,
+I2P lacks a general-purpose DHT for application data (its NetDB stores only
+router and destination metadata), and its ecosystem is smaller with fewer
+maintained client libraries.
+
+IPFS~\cite{benet2014_ipfs} provides content-addressed storage over a
+Kademlia-based DHT and is well suited for data distribution.  However, it
+provides no anonymity: DHT operations and data transfers expose participants'
+IP addresses.  Adding a privacy layer would require tunnelling IPFS through Tor
+or I2P, combining the limitations of both.
+
+Veilid was selected because it provides all three capabilities required by the
+application in a single embeddable library: a general-purpose DHT for
+storing listings and bids, onion-routed private routes for anonymous messaging,
+and a peer-to-peer architecture where all nodes are equal with no privileged
+relays or exit nodes.  This avoided the need to compose multiple
+frameworks (e.g.\ IPFS for storage plus Tor for anonymity) and the integration
+complexity that would entail.
+
+\subsubsection{Bootstrap and Network Formation}
+\label{sec:ctx-veilid-bootstrap}
+
+A Veilid network requires at least one \emph{bootstrap node}: a
+well-known server whose address is configured into every joining node so
+that they can discover initial peers and populate their routing
+tables~\cite{veilid_bootstrap_setup}.  On the public Veilid network,
+bootstrap nodes are discovered via DNS TXT records.  For development and
+testing, a private devnet must provide its own bootstrap infrastructure.
+
+Crucially, Veilid expects each node to present a unique public IP address.
+Its routing-domain logic classifies incoming connections by IP range and
+drops traffic from addresses it considers local or
+duplicate~\cite{veilid_developer_book}. Veilid also implements its own STUN for nodes
+behind some level of NAT, but nodes behind NAT are not deemed ``optimal'', and recieve
+network connection penalties accordingly (cannot act as bootstrap/less priority for relay).
+This means that running multiple nodes on a single machine as required for a local devnet fails
+unless each node appears to be on the public internet and not behind a NAT layer.  A community-contributed development
+network~\cite{veilid-devnet-mr444} uses Docker containers with
+per-container IP addresses.  This project's playground devnet took a lighter
+approach: \texttt{LD\_PRELOAD} IP spoofing via a shared library
+(\texttt{libipspoof.so}) that intercepts socket calls and maps each process to
+a unique fake global IP (e.g.\ \texttt{1.2.3.1} through \texttt{1.2.3.255}),
+supporting up to 255 nodes on a single machine without containerisation.
+The implications of this constraint for devnet design are discussed further in
+Section~\ref{sec:method-approach}.
+
+\subsection{Stigmerge and the Route-in-DHT Pattern}
+\label{sec:ctx-stigmerge}
+
+Stigmerge~\cite{stigmerge2024} is a decentralised file-sharing application
+built on Veilid that demonstrated the coordination patterns this project
+adapted.  The name refers to \emph{stigmergy},indirect coordination through
+a shared environment,where peers communicate by reading and writing shared
+DHT records rather than maintaining direct connections.
+
+Stigmerge established two patterns adopted in this project:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Route-in-DHT}: A node creates a private route, serialises the
+    route blob, and writes it to a DHT subkey.  Remote peers read the subkey,
+    import the blob, and send messages via \texttt{app\_call} to the imported
+    route.  This decouples route exchange from direct messaging.
+  \item \textbf{\texttt{app\_call} for confirmed delivery}: All point-to-point
+    data transfer uses Veilid's \texttt{app\_call} (request--response/SYN \& ACK) rather
+    than \texttt{app\_message} (fire-and-forget), ensuring that failed
+    deliveries are detected immediately rather than silently dropped.
+\end{enumerate}
+
+These patterns were critical for MPC tunnelling, where every message had to be
+confirmed and route failures had to be detected promptly.
+
+\subsection{Auction Privacy in Context}
+\label{sec:ctx-auction-privacy}
+
+Sako~\cite{sako2000_hide_losers} was the first to propose a cryptographic
+auction protocol in which losing bids are never revealed.  The scheme uses
+homomorphic encryption and zero-knowledge proofs so that the auctioneer can
+publicly verify that the announced winner holds the highest bid, without
+disclosing the values submitted by any other participant.  Sako proved the
+protocol's correctness and privacy properties formally but did not produce an
+implementation, leaving practical feasibility as an open question.
+Blockchain-based auctions remove
+the trusted auctioneer via smart contracts but expose all bids on-chain and
+invite front-running~\cite{daian2019_flashboys2}.  The Danish sugar-beet
+auction~\cite{bogetoft2009_mpc_live} demonstrated MPC in production but relied
+on three trusted intermediaries operating over direct TCP.
+
+This project combined the privacy guarantees of MPC (non-winning bids never
+revealed) with the transport-layer anonymity of Veilid (participant IPs never
+exposed), in a fully decentralised setting with no trusted auctioneer.
+
+The seller occupies a semi-trusted role as MPC party~0.  This is justified
+on two grounds.  First, the seller has a direct economic incentive to complete
+the auction honestly: withholding the decryption key or manipulating results
+means the sale does not proceed, costing the seller revenue.  Second, the
+seller is the inherent key holder: since they encrypted the listing content,
+they necessarily possess the decryption key, and any scheme that removes
+the seller from key delivery requires threshold cryptography
+(Section~\ref{sec:conc-future}).  The seller's power is strictly limited
+ephemeral route to the winner, not all bids or bidder identities.
+
+Chapter~\ref{sec:results} evaluates the cost of this combination in terms of
+performance overhead, reliability, and residual information leakage.
+
+
+%% TODO: Architecture diagrams for Ch5 (sequence, module dependency)

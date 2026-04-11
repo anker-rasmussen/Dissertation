@@ -1,93 +1,436 @@
 % Chapter 4: Method — Handbook 8.2.5
-% Detailed report of analysis, design, implementation, evaluation.
-% ~2500 words for BSc. Be specific to YOUR project, not generic SE theory.
-% State which lifecycle you followed, don't explain what it is.
-% Must be clear about reused materials (see also Appendix B).
+% ~2500 words
 
 \section{Method}
 \label{sec:method}
 
-% TODO (~2500 words)
-
 \subsection{Development Approach}
 \label{sec:method-approach}
 
-% - Iterative, prototype-driven development (state, don't explain the methodology)
-% - Devnet-first: local Docker environment before any public network
-% - Mock-driven testing: trait-based dependency injection for deterministic simulation
-% - Tools: Rust 2021, cargo + nextest, Git, Docker Compose
+Development followed an iterative, milestone-driven plan defined in the PDD
+(Appendix~\ref{app:pdd}).  The foundation phase (Nov--Dec~2025) focused on
+understanding the Veilid API, establishing a development
+environment as well as modifying a draft merge request \cite{veilid-devnet-mr444} to fit my usecase
+(creating hooking a socket library using LD\_PRELOAD), and scaffolding the application.  Milestone~1 (Jan--Feb~2026)
+delivered listing and bidding flows over the DHT.  Milestone~2 (Feb--Mar~2026)
+integrated real MPC via MP-SPDZ, culminating in three passing end-to-end tests.
+Milestone~3 (late Mar~2026) focused on benchmarking, the protocol comparison,
+and this report.
 
-\subsection{System Architecture}
+The original plan included a fourth milestone for Monero testnet settlement;
+this was descoped to prioritise MPC tunnel reliability and the MASCOT vs.\
+Shamir comparison, which proved more technically demanding and more
+academically interesting than payment integration.
+
+\subsubsection{Infrastructure}
+
+As discussed in Section~\ref{sec:ctx-veilid-bootstrap}, Veilid requires each
+node to have a unique public IP address.  Developing against the public Veilid
+network was impractical: misconfigured nodes sharing an IP address trigger an
+hour-long ban on that IP, during which no Veilid node can bootstrap from
+it~\cite{rioux2026_ip_punishment}.  A private devnet avoids this penalty and
+allows rapid iteration.  The devnet satisfies the unique-IP constraint using
+two approaches:
+
+The playground devnet launched Veilid processes directly on the host, each
+assigned a unique IP via \texttt{libipspoof.so}, which intercepted socket
+calls to map fake public addresses (\texttt{1.2.3.1}--\texttt{1.2.3.255})
+to localhost,supporting up to 255 nodes on a single machine.  The
+bootstrap node at \texttt{1.2.3.1:5150} was configured following the
+official Veilid bootstrap guide~\cite{veilid_bootstrap_setup}.  Lattice nodes took the earliest unused offset above the devnet range,
+allowing the same addressing scheme to scale across the 40-, 60-, and
+80-node devnets used in benchmarking.
+
+Figure~\ref{fig:devnet-topology} shows the devnet layout.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+    node/.style={draw, circle, minimum size=0.7cm, font=\scriptsize,
+                 inner sep=0pt, thick},
+    bstrap/.style={node, double, double distance=1pt},
+    market/.style={node, fill=black!8},
+    lbl/.style={font=\scriptsize},
+    conn/.style={thin},
+  ]
+  % 5 devnet nodes in a pentagon
+  \node[bstrap] (d0) at (90:2cm)  {0};
+  \node[node]   (d1) at (162:2cm) {1};
+  \node[node]   (d2) at (234:2cm) {2};
+  \node[node]   (d3) at (306:2cm) {3};
+  \node[node]   (d4) at (18:2cm)  {4};
+
+  % Full mesh (each node connected to every other)
+  \draw[conn] (d0) -- (d1);
+  \draw[conn] (d0) -- (d2);
+  \draw[conn] (d0) -- (d3);
+  \draw[conn] (d0) -- (d4);
+  \draw[conn] (d1) -- (d2);
+  \draw[conn] (d1) -- (d3);
+  \draw[conn] (d1) -- (d4);
+  \draw[conn] (d2) -- (d3);
+  \draw[conn] (d2) -- (d4);
+  \draw[conn] (d3) -- (d4);
+
+  % 3 Lattice market nodes in a dashed box
+  \node[node] (m20) at (5.0, 1.2)  {20};
+  \node[node] (m21) at (5.0, 0.0)  {21};
+  \node[node] (m22) at (5.0,-1.2)  {22};
+
+  \node[draw, dashed, rounded corners=6pt, inner sep=10pt,
+        fit=(m20)(m21)(m22),
+        label={[lbl]above:Lattice (application)}] {};
+
+  % Market nodes mesh with devnet + each other
+  \draw[conn] (m20) -- (d0);
+  \draw[conn] (m20) -- (d4);
+  \draw[conn] (m21) -- (d4);
+  \draw[conn] (m21) -- (d3);
+  \draw[conn] (m22) -- (d3);
+  \draw[conn] (m22) -- (d2);
+  \draw[conn] (m20) -- (m21);
+  \draw[conn] (m21) -- (m22);
+
+  % Labels
+  \node[lbl, anchor=south] at ([yshift=3pt]d0.north) {bootstrap};
+  \node[lbl] at (0, -3) {Devnet (5 of 20--80 shown)};
+  \node[lbl, align=left] at (7.8, 0)
+    {IP: \texttt{1.2.3.($n$+1)}\\
+     Port: \texttt{5150+$n$}\\[2pt]
+     All on one machine\\
+     via \texttt{libipspoof.so}};
+  \end{tikzpicture}
+  \caption{Playground devnet topology (subset shown).  Node~0 (double
+    border) is the bootstrap server; after initial discovery all nodes
+    form a P2P mesh.  Lattice market nodes (shaded) join with offsets
+    above the devnet range.  All nodes run on a single machine with
+    \texttt{LD\_PRELOAD} IP spoofing.}
+  \label{fig:devnet-topology}
+\end{figure}
+
+The devnet was automated via Makefile targets.  \texttt{make demo} built
+everything from source, started the devnet, and launched a three-node auction
+with no manual setup.  Benchmark runs (Section~\ref{sec:results-benchmarks})
+used devnets of 40, 60, and 80 nodes to evaluate how network size affected
+route stability and auction success rates.
+
+\subsection{Architecture}
 \label{sec:method-architecture}
 
-% - Two-tier coordination design:
-%   - AuctionLogic<D,T,M,C>: generic over DhtStore, MessageTransport, MpcRunner, TimeProvider
-%   - AuctionCoordinator: concrete Veilid implementation wrapping AuctionLogic
-% - Justification: testability — full N-party auction simulations run in <1s with mocks
-% - Module layout: traits/ -> mocks/ -> veilid/ -> marketplace/ -> mpc/ -> app/
+\subsubsection{Auction State Machine}
+\label{sec:method-state-machine}
 
-% Include: high-level architecture diagram (Figure)
+Auction logic was abstracted behind traits (\texttt{DhtStore},
+\texttt{RandomSource}) so that the full lifecycle could be tested with mock
+implementations.  Each auction progressed through six phases
+(Figure~\ref{fig:auction-fsm}).  Phase transitions are driven by events:
+the deadline timer, DHT reads completing, \texttt{app\_call} responses
+arriving, and the MP-SPDZ process exiting.
 
-\subsection{Technology Choices and Justifications}
-\label{sec:method-tech}
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+    proc/.style={draw, minimum width=2.8cm, minimum height=0.8cm,
+                 font=\small, align=center},
+    decision/.style={draw, diamond, aspect=2.2, inner sep=1pt,
+                     font=\scriptsize, align=center},
+    term/.style={draw, rounded corners=8pt, minimum width=2.2cm,
+                 minimum height=0.7cm, font=\small},
+    trans/.style={-{Stealth}, thick},
+    lbl/.style={font=\scriptsize, fill=white, inner sep=1pt},
+    node distance=1.1cm,
+  ]
+  % Terminals and processes
+  \node[term] (start) {Active};
+  \node[proc, below=of start] (collect) {Collect\\[-2pt]Routes};
+  \node[decision, below=1.3cm of collect] (droutes) {All routes\\collected?};
+  \node[proc, below=1.3cm of droutes] (barrier) {Readiness\\[-2pt]Barrier};
+  \node[decision, below=1.3cm of barrier] (dready) {All acks\\received?};
+  \node[proc, below=1.3cm of dready] (mpc) {MPC\\[-2pt]Execution};
+  \node[decision, below=1.3cm of mpc] (dmpc) {MPC\\succeeded?};
+  \node[proc, below=1.3cm of dmpc] (verify) {Verify \&\\[-2pt]Deliver Key};
+  \node[term, below=of verify] (done) {Completed};
+  \node[term, right=2.8cm of done] (fail) {Failed};
 
-% Each choice needs a WHY and what alternatives were considered.
+  % Happy path
+  \draw[trans] (start) -- node[lbl, right] {deadline expires} (collect);
+  \draw[trans] (collect) -- (droutes);
+  \draw[trans] (droutes) -- node[lbl, right] {yes} (barrier);
+  \draw[trans] (barrier) -- (dready);
+  \draw[trans] (dready) -- node[lbl, right] {yes} (mpc);
+  \draw[trans] (mpc) -- (dmpc);
+  \draw[trans] (dmpc) -- node[lbl, right] {yes} (verify);
+  \draw[trans] (verify) -- (done);
 
-\subsubsection{Veilid for Coordination and Transport}
-% - DHT-native (no separate DHT needed), private routes, no exit nodes
-% - Directly satisfies project brief
-% - Tradeoff: less battle-tested than Tor, smaller anonymity set
+  % Retry loops
+  \draw[trans] (droutes.west) -- node[lbl, above] {no} ++(-1.6,0)
+    |- (collect.west);
+  \draw[trans] (dready.west) -- node[lbl, above] {no} ++(-1.6,0)
+    |- (barrier.west);
 
-\subsubsection{MASCOT Protocol for MPC}
-% - N-party support with dishonest-majority security (no honest-majority assumption)
-% - MP-SPDZ provides production-grade implementation with mascot-party.x
-% - Advantage over Shamir: tolerates N-1 corrupt parties; supports N >= 2
-% - Tradeoff: higher computational cost than Shamir (OT-based), acceptable for auction workloads
+  % Failure paths
+  \draw[trans] (dmpc.east) -- node[lbl, above] {no} ++(1.4,0)
+    |- (fail.west);
 
-\subsubsection{Commitment Scheme for Bid Integrity}
-% - SHA256(bid_value || 32-byte nonce): hiding + binding
-% - Simple, well-understood, no additional crypto infrastructure needed
-% - Alternative considered: Pedersen commitments (homomorphic but more complex)
+  \end{tikzpicture}
+  \caption{Auction phase flowchart.  Rectangles are processing phases;
+    diamonds are decision points; rounded boxes are terminal states.
+    The ``no'' paths from route collection and readiness barrier represent
+    retry loops (DHT re-poll and route refresh respectively).
+    MPC failure leads to the Failed terminal.  Each participant independently
+    tracks this flow for every auction.}
+  \label{fig:auction-fsm}
+\end{figure}
 
-\subsubsection{Serialization Formats}
-% - CBOR (ciborium) for DHT-stored records: self-describing, forward-compatible
-% - Bincode for wire messages: compact, fast for ephemeral auction messages
-% - Veilid DHT takes raw Vec<u8> — format choice is application-level
+\subsubsection{DHT Record Hierarchy}
+\label{sec:method-dht-hierarchy}
 
-\subsubsection{Desktop UI Framework}
-% - Dioxus 0.7.2: Rust-native, cross-platform desktop
-% - Allows single-language codebase (Rust end-to-end)
-
-\subsection{MPC Protocol Design}
+All marketplace state was stored in Veilid's DHT.
+Figure~\ref{fig:dht-hierarchy} shows the record hierarchy.
+Each MPC party published its route blob to its bid's DHT record
+(subkey~1), the \emph{route-in-DHT} pattern adapted from
+Stigmerge~\cite{stigmerge2024}.  This aligns with the DHT shared-writer
+pattern recommended by the Veilid lead
+developer~\cite{rioux2025_dht_patterns}; Veilid~0.6.0 is expected to
+automate this via DHT route autopublish.
 \label{sec:method-mpc}
 
-% - auction_n.mpc: N-party sealed-bid auction
-% - Party assignment: by bid timestamp ascending (seller = party 0, always earliest)
-% - Privacy model: party 0 sees winner ID + bid; others see only won: 0/1
-% - Post-MPC verification: seller-initiated challenge-response
-% - Decryption key transfer via Veilid private routes
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[
+    rec/.style={draw, minimum width=2.1cm, minimum height=0.9cm,
+                font=\small, align=center, thick},
+    sk/.style={draw, dashed, minimum width=2.2cm, minimum height=0.6cm,
+               font=\scriptsize, align=center},
+    actor/.style={draw, circle, minimum size=0.7cm, font=\scriptsize,
+                  inner sep=0pt, thick, fill=blue!10},
+    arr/.style={-{Stealth[length=2.5mm]}, thick},
+    warr/.style={-{Stealth[length=2.5mm]}, thick, dashed, blue!60},
+    lbl/.style={font=\scriptsize, midway, fill=white, inner sep=1pt}
+  ]
+    % Master registry
+    \node[rec, fill=gray!15] (reg) at (0,0) {Market\\Registry};
+
+    % Seller catalogs
+    \node[rec, fill=gray!15] (s1) at (-3,-2) {Seller\\Catalog};
+    \node[rec, fill=gray!15] (s2) at (3,-2) {Seller\\Catalog};
+
+    \draw[arr] (reg) -- (s1);
+    \draw[arr] (reg) -- (s2);
+
+    % Listings
+    \node[rec] (l1) at (-4.5,-4.2) {Listing};
+    \node[rec] (l2) at (-1.5,-4.2) {Listing};
+    \node[rec] (l3) at (3,-4.2) {Listing};
+
+    \draw[arr] (s1) -- (l1);
+    \draw[arr] (s1) -- (l2);
+    \draw[arr] (s2) -- (l3);
+
+    % Listing subkeys
+    \node[sk] (l1s0) at (-5.8,-5.8) {SK\,0: Data};
+    \node[sk] (l1s1) at (-3.2,-5.8) {SK\,1: G-Set\\(Bid Announce.)};
+    \draw[arr, thin] (l1) -- (l1s0);
+    \draw[arr, thin] (l1) -- (l1s1);
+
+    % Bidders writing to G-Set
+    \node[actor] (bidA) at (-5.5,-7.2) {$B_1$};
+    \node[actor] (bidB) at (-3.2,-7.2) {$B_2$};
+    \node[font=\scriptsize] at (-1.7,-7.2) {$\cdots$};
+    \node[actor] (bidN) at (-0.9,-7.2) {$B_n$};
+
+    \draw[warr] (bidA) -- (l1s1);
+    \draw[warr] (bidB) -- (l1s1);
+    \draw[warr] (bidN) -- (l1s1);
+
+    % Bid records
+    \node[rec] (b1) at (-5.5,-8.8) {Bid};
+    \node[rec] (b2) at (-3.2,-8.8) {Bid};
+    \node[font=\scriptsize] at (-1.7,-8.8) {$\cdots$};
+    \node[rec] (bn) at (-0.9,-8.8) {Bid};
+
+    \draw[arr, thin] (bidA) -- (b1);
+    \draw[arr, thin] (bidB) -- (b2);
+    \draw[arr, thin] (bidN) -- (bn);
+
+    % Bid subkeys (show for b1 only)
+    \node[sk] (b1s0) at (-7.2,-10.2) {SK\,0: Bid\\Record};
+    \node[sk] (b1s1) at (-4.2,-10.2) {SK\,1: MPC\\Route Blob};
+    \draw[arr, thin] (b1) -- (b1s0);
+    \draw[arr, thin] (b1) -- (b1s1);
+
+    \node[font=\scriptsize, gray] at (-0.9,-9.8) {\textit{(same layout)}};
+  \end{tikzpicture}
+  \caption{DHT record hierarchy.  Shaded boxes are directory records;
+    dashed boxes show subkey layout.  Bidders ($B_1$--$B_n$, dashed arrows)
+    each merge their announcement into the listing's G-Set CRDT
+    (subkey~1) and own an individual bid record.  Each node also
+    maintains a local copy of the G-Set in memory; periodic DHT reads
+    merge remote state into the local copy, ensuring convergence.
+    Each bid record's subkey~1 carries the MPC route blob for
+    DHT-backed route exchange.}
+  \label{fig:dht-hierarchy}
+\end{figure}
+
+\newpage
+\subsubsection{MPC Tunnel}
+MP-SPDZ processes communicate via TCP.  On a direct network this is trivial;
+over Veilid, each TCP connection must be tunnelled through onion-routed private
+routes.  The \texttt{MpcTunnelProxy} module bridged the two worlds:
+
+\begin{enumerate}
+  \item The MPC orchestrator collects route blobs from all parties via DHT
+    reads (with \texttt{app\_message} announcement as a fast path and DHT
+    polling as a reliable fallback).
+  \item A local TCP listener accepts connections from the MP-SPDZ process and
+    forwards each send as a Veilid \texttt{app\_call} to the target party's
+    private route.  The receiver's \texttt{app\_call} handler feeds the
+    payload into a local TCP connection to its own MP-SPDZ process.
+  \item Sends are pipelined with a bounded semaphore (depth~8) to overlap
+    network round trips.  A per-stream reorder buffer handled out-of-order
+    delivery.
+\end{enumerate}
+
+All point-to-point MPC traffic used \texttt{app\_call} (SYN/ACK)
+rather than \texttt{app\_message} (fire-and-forget), following the pattern
+established by Stigmerge~\cite{stigmerge2024}.  This ensures failed deliveries
+are detected immediately, a critical requirement for MPC, where a single
+lost message causes the protocol to hang.
+
+\subsubsection{Winner Verification and Content Delivery}
+\label{sec:method-verification}
+
+After MPC completes, the seller (party~0) knows the winner's identity and
+winning bid value.  Content delivery used a commitment-and-challenge scheme:
+
+\begin{enumerate}
+  \item The seller sends a challenge to the claimed winner via
+    \texttt{app\_call} over their MPC route.
+  \item The winner responds with their bid value and nonce, proving knowledge
+    of the committed bid.
+  \item The seller verifies the commitment
+    $C = \text{SHA-256}(\mathit{bid} \| \mathit{nonce})$ matches the on-DHT
+    record, then sends the AES-256-GCM decryption key.
+\end{enumerate}
+
+The PDD originally proposed 1-out-of-$N$ oblivious transfer for this step.
+The implemented scheme is simpler: because the seller already learns the
+winning bid as MPC party~0, OT would add complexity without additional privacy
+benefit.  The commitment scheme ensures the seller cannot substitute a
+different winner, and the \texttt{app\_call} delivery ensures the key transfer
+is confirmed.
+
+\subsection{Technology Choices}
+\label{sec:method-tech}
+
+\subsubsection{Why Veilid}
+
+Veilid provides keyed endpoints, a secure DHT, and private routing in a
+single embeddable library (Table~\ref{tab:overlay-comparison}).  Each auction
+participant runs a full Veilid node in-process, avoiding the external daemon
+or SOCKS proxy required by Tor or I2P.
+
+\subsubsection{Why MP-SPDZ}
+
+MP-SPDZ~\cite{mp-spdz} was selected for MPC execution because it supports
+multiple protocol backends from a single high-level program, enabling the
+MASCOT vs.\ Shamir comparison central to the evaluation.  The framework is
+actively maintained, well-documented, and provides the
+\texttt{mascot-party.x} and \texttt{shamir-party.x} binaries used in
+benchmarking.
+
+\subsubsection{Why MASCOT and Shamir}
+
+These two protocols represent opposite ends of the MPC trust spectrum:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{MASCOT} (dishonest majority, malicious security): tolerates
+    up to $N{-}1$ corrupt parties.  Suitable for an untrusted P2P setting
+    where any participant might be adversarial.  The cost is $O(N^2)$
+    bandwidth from pairwise OT.
+  \item \textbf{Shamir} (honest majority, semi-honest security): requires
+    $< N/2$ corrupt parties.  Much lower communication overhead (linear in
+    $N$), but the assumption may not hold in an open marketplace.
+\end{itemize}
+
+Replicated secret sharing (3-party, honest majority) was used during early
+development as the simplest protocol to validate the integration pipeline.  It
+is not included in the benchmark comparison because it is fixed to exactly
+three parties, making scaling analysis impossible.
+
+Other MP-SPDZ backends (semi-honest two-party, BMR garbled circuits,
+SPDZ2k over rings) were not tested because they either do not support
+arbitrary $N$, target a different threat model, or solve the same trust
+assumption as one of the two selected protocols.  MASCOT and Shamir were chosen
+to isolate the single most impactful variable: honest vs.\ dishonest majority.
+
+\subsubsection{Serialisation Strategy}
+
+Two serialisation formats are used:
+\begin{itemize}[noitemsep]
+  \item \textbf{CBOR} for DHT-stored records (listings, bids, route entries).
+    CBOR is self-describing and tolerates schema evolution, important for
+    data that persists in Veilid's DHT (32\,KB value limit).
+  \item \textbf{Bincode} for ephemeral wire messages
+    (\texttt{AuctionMessage} enum via \texttt{app\_call}).  More compact than
+    CBOR but brittle across schema changes, acceptable for messages that are
+    never stored.
+\end{itemize}
+
+\subsubsection{UI Framework}
+
+Dioxus~0.7.2 provides a React-like desktop UI with a GTK/WebKit backend.
+The UI was not a focus of the project; it served as a thin presentation layer
+over the auction logic.  A headless binary (\texttt{market-headless}) was
+built for E2E testing, bypassing the UI entirely.
 
 \subsection{Testing Strategy}
 \label{sec:method-testing}
 
-% - Unit tests: traits, serialization, time/random providers
-% - Integration tests: MultiPartyHarness with shared mock DHT/transport/MPC
-%   - 3-party, 5-party, 10-party auctions
-%   - Edge cases: ties, reserve price, expired listings, duplicate bids
-% - E2E tests: real Veilid devnet + Docker, marked #[ignore]
-% - No human participants (as per ethics form)
+Testing followed a three-tier approach:
 
-\subsection{Reused Software}
+\begin{enumerate}
+  \item \textbf{Unit tests} (${\sim}$169 tests): in \texttt{src/} alongside
+    modules.  Fast, isolated, no network dependencies.
+  \item \textbf{Integration tests} (${\sim}$63 tests): in \texttt{tests/}.
+    Use mock DHT, mock time, and mock randomness to simulate full $N$-party
+    auction flows.  A \texttt{MultiPartyHarness} sets up $N$ independent
+    \texttt{AuctionLogic} instances sharing a \texttt{MockDht} backend,
+    enabling deterministic testing of bid ordering, ties, edge cases, and
+    MPC output parsing.  All integration tests complete in under one second.
+  \item \textbf{End-to-end tests} (3~tests): in \texttt{tests/e2e/}.  Run
+    against the playground devnet with \texttt{LD\_PRELOAD} IP spoofing.  Each
+    test launches separate OS processes (\texttt{market-headless}) and
+    exercises the full Veilid networking stack.  These tests run sequentially
+    (\texttt{-{}-test-threads=1}) because they share Veilid infrastructure.
+\end{enumerate}
+
+The three E2E tests cover:
+\begin{itemize}[noitemsep]
+  \item \textbf{Happy path}: single auction, 3~parties, listing
+    $\rightarrow$ bids $\rightarrow$ MPC $\rightarrow$ verification
+    $\rightarrow$ decryption key delivery.
+  \item \textbf{Sequential auctions}: two auctions in sequence on the same
+    nodes, testing route refresh between sessions.
+  \item \textbf{Concurrent auctions}: two auctions with overlapping timelines,
+    testing the constraint that only one MPC session can be active per node
+    (due to Veilid's single-active-route limitation).
+\end{itemize}
+
+\subsection{Reuse and Attribution}
 \label{sec:method-reuse}
 
-% Required by Handbook 8.2.5 and 9.6. See also Appendix B.
-% State what was reused and how it affected development.
-%
-% | Component       | Licence       | How used                          |
-% |-----------------|---------------|-----------------------------------|
-% | veilid-core     | MPL-2.0       | P2P networking, DHT, routing      |
-% | MP-SPDZ         | BSD-3-Clause  | MPC protocol execution            |
-% | Dioxus 0.7.2    | MIT/Apache    | Desktop UI framework              |
-% | tokio           | MIT           | Async runtime                     |
-% | sha2, aes-gcm   | MIT/Apache    | Cryptographic primitives          |
-% | ciborium        | MIT/Apache    | CBOR serialization                |
+The project built on three major external components:
+\begin{itemize}[noitemsep]
+  \item \textbf{Veilid} (MPL-2.0): P2P networking, DHT, private routing.
+    Used as a library dependency; no modifications to Veilid source were
+    required for the Lattice application.
+  \item \textbf{MP-SPDZ} (BSD-3-Clause): MPC protocol execution.  The
+    46-line \texttt{auction\_n.mpc} program is original; the framework
+    binaries are used unmodified.
+\end{itemize}
+
+The \texttt{app\_call} delivery model and route-in-DHT pattern were informed
+by Stigmerge~\cite{stigmerge2024}, a Veilid file-sharing application; no code
+was copied.  A full component-level reuse table is provided in
+Appendix~\ref{app:reuse}.

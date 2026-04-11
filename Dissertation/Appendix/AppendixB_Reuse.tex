@@ -29,14 +29,14 @@ tracing         & 0.1            & MIT            & Structured logging \\
 async-trait     & 0.1            & MIT/Apache-2.0 & Async trait support \\
 \bottomrule
 \end{tabular}
-\caption{Third-party libraries used in the market crate.}
+\caption{Third-party libraries used in the Lattice crate.}
 \label{tab:reuse}
 \end{table}
 
 \subsection*{Development Tools}
 
 \begin{itemize}[noitemsep]
-  \item \textbf{Docker / Docker Compose}: Veilid devnet environment (5-node topology).
+  \item \textbf{Docker devnet}: Initial devnet environment adapted from a Veilid community merge request~\cite{veilid-devnet-mr444}; later replaced by the Veilid Playground (process-based, no Docker).
   \item \textbf{cargo-nextest}: Test runner for parallel and sequential test execution.
   \item \textbf{libipspoof.so}: LD\_PRELOAD library from Veilid devcontainer for IP address spoofing in devnet. Source: Veilid repository (MPL-2.0).
 \end{itemize}
@@ -45,4 +45,4 @@ async-trait     & 0.1            & MIT/Apache-2.0 & Async trait support \\
 
 The Veilid project's \texttt{veilidchat} application was studied as a reference for Veilid API usage patterns (DHT record creation, routing context setup, message handling). No code was directly copied; API patterns were adapted for the auction use case.
 
-% TODO: If any code was copied/adapted, state exactly what and from where.
+Stigmerge~\cite{stigmerge2024}, a Veilid-based file-sharing application, was studied for its use of \texttt{app\_call} over private routes for reliable message delivery. The delivery pattern was adapted for the MPC tunnel proxy; Stigmerge's DHT-write approach was not used.

@@ -1,49 +1,223 @@
 % Chapter 1: Introduction — Handbook 8.2.2
-% Concise introduction and summary of what readers should expect.
-% Update from PDD, written in past tense.
+% ~1000 words
 
 \section{Introduction}
 \label{sec:introduction}
 
-% TODO (~1000 words total for this chapter)
-
 \subsection{Problem Statement}
 \label{sec:intro-problem}
 
-% - Popular marketplaces (eBay, FB Marketplace) either leak bid info or have no formal auction
-% - Blockchain auctions add auditability but invite front-running / MEV
-% - Sealed-bid auctions preserve privacy but require a trusted auctioneer
-% - MPC removes the trusted auctioneer, but needs a coordination and transport layer
+Since the inception of the digital age, many established industries have moved
+online.  Auction systems in particular have seen a massive surge in popularity
+due to the low barrier to entry for both buyers and sellers: eBay sold
+\$7.2~million worth of goods within a year of launch~\cite{ebay_history2025}
+and today hosts 2.5~billion live listings across 135~million active
+buyers worldwide~\cite{ebay_about2025}, and this is only one platform.  However, their
+security models have not kept pace.  The move from physical sealed envelopes
+to digital platforms introduced new attack surfaces, including bid visibility,
+platform trust, and metadata exposure. Existing systems address
+these concerns incompletely, if at all.
+
+Popular online marketplaces follow three distinct patterns.  eBay uses open
+proxy bidding: the current highest bid is visible throughout the auction and
+the platform operator sees all bids~\cite{ebay_help_bidding}.  Facebook
+Marketplace is a listing-plus-messaging workflow with no formal auction
+protocol and weak buyer protections~\cite{fb_marketplace_help}.  Blockchain
+marketplaces such as OpenSea~\cite{opensea2025} use English style auctions where
+every bid is an on-chain transaction, publicly visible on all supported
+chains~\cite{opensea_chains2025} and permanently recorded solving the
+trusted-auctioneer problem via smart contracts, but providing zero bid privacy.
+
+Government procurement offers a contrasting model.  Under the US Federal
+Acquisition Regulation, sealed bidding keeps all bids confidential until a
+public opening event~\cite{far_part14}.  Bids are private \emph{during}
+submission, but a trusted auctioneer (the contracting officer) sees every bid
+at opening and determines the winner.  Sealed bidding thus protects bids from
+\emph{other bidders} but not from the \emph{auctioneer}.
+
+Daian et al.\ demonstrated that even blockchain-based commit-reveal schemes
+are vulnerable to front-running and miner-extractable value
+(MEV)~\cite{daian2019_flashboys2}, where transaction ordering can be
+exploited during the reveal phase.  Cryptographic sealed-bid auctions can
+hide non-winning bids entirely~\cite{sako2000_hide_losers}, and multi-party
+computation (MPC) can remove the need for a trusted auctioneer
+altogether~\cite{bogetoft2009_mpc_live}.  However, deploying MPC over a
+transport layer that also hides participants' network identities remains
+largely unexplored.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.3}
+\makebox[\textwidth][c]{%
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+\textbf{System} & \textbf{Bids visible?} & \textbf{Trusted auctioneer?} & \textbf{Decentralised?} & \textbf{Bidder identity} \\
+\hline
+eBay              & Yes (open ascending) & Yes           & No  & Real name + address \\
+\hline
+OpenSea           & Yes (on-chain)       & No (contract) & Yes & Pseudonymous (wallet, IP visible) \\
+\hline
+US govt.\ sealed bid & No (until opening) & Yes (sees all)& No  & Real name (registered) \\
+\hline
+\textbf{Lattice(This project)} & \textbf{No (MPC)} & \textbf{No} & \textbf{Yes} & \textbf{Pseudonymous (key, IP hidden)} \\
+\hline
+\end{tabular}}%
+\caption{Comparison of auction privacy models~\cite{ebay_help_bidding,opensea2025,far_part14}.}
+\label{tab:auction-comparison}
+\end{table}
+
+\subsection{Security Policy}
+\label{sec:intro-security-policy}
+
+Privacy in this system meant protecting specific information from specific
+adversaries.  Table~\ref{tab:security-policy-intro} summarises the security
+policy; Chapter~\ref{sec:context} expands on the threat model in the context
+of Veilid's network-layer protections.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.3}
+\makebox[\textwidth][c]{%
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{What is protected} & \textbf{From whom} & \textbf{Mechanism} \\
+\hline
+Non-winning bid values & All parties (incl.\ seller) & MPC: only the maximum is revealed to party~0 \\
+\hline
+Bidder network identity (IP) & Network observers, other bidders & Veilid private routes (onion-routed, multi-hop) \\
+\hline
+Listing content before purchase & Non-winners & AES-256-GCM; key released only to verified winner \\
+\hline
+Bid existence and timing & Partially protected & DHT participation metadata remains visible \\
+\hline
+\end{tabular}}%
+\caption{Security policy: what is protected and from whom.}
+\label{tab:security-policy-intro}
+\end{table}
+
+The \emph{adversary model} considered four types, summarised in
+Table~\ref{tab:adversary-model}.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.3}
+\makebox[\textwidth][c]{%
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Adversary} & \textbf{Capability} & \textbf{Goal} \\
+\hline
+Honest-but-curious bidder & Follows protocol, observes all available data & Learn other bids or bidder identities \\
+\hline
+Malicious seller & Controls listing, party~0 output, key release & Grief (withhold key), collude with preferred bidder \\
+\hline
+Passive network observer & Monitors DHT writes and message patterns & Deanonymise participants \\
+\hline
+Colluding parties & Multiple participants share private state & Break MPC threshold, reconstruct secret inputs \\
+\hline
+Dishonest participant & Participates in auction, observes protocol & Deanonymise other bidders or link pseudonyms to IPs \\
+\hline
+\end{tabular}}%
+\caption{Adversary model.}
+\label{tab:adversary-model}
+\end{table}
+
+Key \emph{trust and design assumptions}:
+
+\begin{itemize}[noitemsep]
+  \item The seller is semi-trusted: as MPC party~0 they learn the winning bid
+    value and receive an ephemeral onion route to the winner, but not the
+    winner's network identity.  The seller controls decryption key release
+    and can grief by withholding the key.
+  \item Veilid's private routing provides transport-layer anonymity; the
+    effective anonymity set depends on both the number of relay nodes
+    available in the overlay and the number of hops configured per
+    private route. In this project's devnet; due to the devnet size, the hops default to 1.  More relay nodes increase the pool
+    of possible intermediaries; more hops make traffic analysis harder
+    but add latency per round trip.
+  \item Liveness requires all MPC parties to remain online throughout
+    computation.  A single party going offline aborts the auction.
+  \item The MPC security guarantee depends on the protocol backend:
+    MASCOT~\cite{keller2016_mascot} tolerates up to $N{-}1$ corrupt parties
+    (dishonest majority)- and this is justified by the seller getting extra information in comparison to the bidding participants.
+    Shamir~\cite{shamir1979_secret_sharing} requires
+    an honest majority of at least $\lfloor N/2 \rfloor + 1$ honest parties.
+  \item The system operates on a private devnet, not the public Veilid
+    network.  All nodes are controlled by the tester; no real-world
+    adversaries or network conditions are present or have been tested.
+  \item Each Veilid node is assumed to have a unique public IP address.
+    The devnet simulates this via LD\_PRELOAD IP spoofing
+    (Section~\ref{sec:ctx-veilid-bootstrap}).
+  \item Veilid supports only one active private route per node at a time.
+    MPC sessions are therefore sequential; concurrent auctions on the same
+    node are not possible.
+  \item Party assignment is deterministic (sorted by bid timestamp).
+    Any deterministic assignment from public data (timestamps, public keys,
+    or otherwise) is publicly derivable and constitutes a known side channel.
+    With MASCOT this is low severity, as the protocol is secure regardless
+    of party identity; with Shamir it is more concerning if an attacker
+    can target specific parties for corruption
+    (Section~\ref{sec:results-security}).
+  \item No Sybil resistance: Veilid itself provides no defence against
+    a single adversary creating multiple pseudonymous identities.  By
+    extension, nothing prevents one party from placing multiple bids in
+    the same auction under different keys.  Mitigating this would require
+    an identity layer that is out of scope.
+  \item The auction is first-price only: the highest bidder wins and pays
+    their bid. 
+  \item No payment or settlement layer is integrated.  The auction ends
+    at decryption key delivery; actual exchange of goods or funds is
+    out of scope.
+\end{itemize}
 
 \subsection{Project Objectives}
 \label{sec:intro-objectives}
 
-% Main objective: deliver a working P2P marketplace on Veilid supporting
-% sealed-bid listings with MPC-based winner determination.
-%
-% Sub-objectives:
-%   1. End-to-end auction flow (list -> bid -> MPC -> winner -> decrypt)
-%   2. Sealed-bid via MASCOT MPC protocol (N >= 2 parties)
-%   3. MPC-gated content decryption (commitment + challenge-response)
-%   4. Monero testnet settlement (status: not implemented — discuss scope change)
+The main objective was to deliver a working peer-to-peer marketplace on the
+Veilid network supporting sealed-bid listings with private content unlock for
+the winning bidder.  Four sub-objectives were defined in the PDD
+(Appendix~\ref{app:pdd}):
+
+\begin{enumerate}
+  \item \textbf{Listings and purchases.}  End-to-end auction flow: create
+    listing $\rightarrow$ submit bid $\rightarrow$ determine winner
+    $\rightarrow$ complete purchase.
+  \item \textbf{Sealed-bid via MPC.}  Integrate a multi-party computation
+    protocol to select the highest valid bid without revealing non-winning bids.
+  \item \textbf{MPC-gated decryption.}  Bind winner selection to content
+    access: only the verified winner obtains the decryption key.
+  \item \textbf{Settlement on Monero testnet.}  Simulate wallet
+    initialisation, deposits, and release on a private Monero testnet.
+    This objective was descoped as it was not inline with the research
+    goals of the project, being more suited to a production system
+    (Section~\ref{sec:conc-objectives}).
+\end{enumerate}
 
 \subsection{Beneficiaries}
 \label{sec:intro-beneficiaries}
 
-% - Project consultant (proof-of-concept for Veilid)
-% - Veilid community (real-world application demonstrating capabilities)
-% - Privacy-oriented marketplace users (research prototype)
-
-\subsection{Scope and Assumptions}
-\label{sec:intro-scope}
-
-% - Proof-of-concept, not production deployment
-% - Devnet only (no public Veilid network, no mainnet funds)
-% - MASCOT provides dishonest-majority security (no honest-majority assumption)
-% - Seller trust assumption for decryption key release
-% - Monero integration planned but descoped (discuss why)
+The project consultant gained a proof-of-concept demonstrating Veilid's
+capabilities for a non-trivial use case.  The Veilid development community
+benefited from a real application exercising the framework's private routing
+and DHT APIs.  The project also contributed empirical data on the overhead of
+tunnelling MPC through a privacy-preserving overlay. Also contributed was the 
+playground infrastructure to the Veilid community; as a seperate testing environment
+for users to test their own applications in a ``sandbox''.
 
 \subsection{Report Structure}
 \label{sec:intro-structure}
 
-% Brief roadmap: Ch 2 outputs, Ch 3 context, Ch 4 method, Ch 5 results, Ch 6 conclusions
+Chapter~\ref{sec:output-summary} summarises the deliverables.
+Chapter~\ref{sec:context} provides technical background on the building
+blocks: Veilid, MP-SPDZ, and the stigmerge coordination pattern, and expands
+the security policy into a full threat model.
+Chapter~\ref{sec:method} describes the architecture, protocol design, and
+testing strategy.  Chapter~\ref{sec:results} presents verification:
+functionality, performance benchmarks comparing MASCOT and Shamir over Veilid,
+and a security analysis of residual information leakage.
+Chapter~\ref{sec:conclusions} gives a critical overview, reflections, and
+future work.
+
+

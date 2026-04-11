@@ -31,31 +31,24 @@
 \section*{Abstract}
 \addcontentsline{toc}{section}{Abstract}
 
-Bidder privacy is absent from mainstream online auctions.  Open-bid platforms
-reveal the bidding process to all participants; sealed-bid schemes hide bid
-values but still require a trusted auctioneer who sees every bid.  In both
-models, losing bidders' information is unnecessarily exposed, and metadata ---
-who bid, when, how often --- is visible to platform operators and network
-observers.  This project explored whether a fully decentralised auction could
-protect bidder privacy without any trusted intermediary.
-
-A peer-to-peer sealed-bid marketplace was built on Veilid, a privacy-first
-application framework providing onion-routed messaging, a secure distributed
-hash table, and public-key identities with no central server.  Bids are
-cryptographically committed and the winner is determined jointly by all
-participants using the MASCOT multi-party computation protocol, so that losing
-bid values are never revealed to anyone.  Network-level privacy is provided by
-Veilid's private routing, which obscures participants' IP addresses and
-locations.  Even the seller, who learns the winning bid value, receives only an
-ephemeral onion route to the winner --- not their identity.
-
-The prototype was implemented in Rust (approximately 14,800 lines of original
-code) and tested on a 20-node devnet with automated end-to-end auction
-scenarios.  A security analysis identified residual privacy limitations: bid
-timing can leak party assignments, participation metadata is visible on the
-DHT, and any single party going offline during MPC execution prevents the
-auction from completing.
-
-
-% Scope the definitions to be strict!
-% Metadata about bids / What are you trying to protect, who are you trying to protect it from?`
+This project addresses privacy in online sealed-bid auctions, where current
+systems require either a trusted auctioneer who sees all bids or a public
+ledger that exposes them.  The central question is whether a decentralised
+auction can protect both bid values and participant network identities without
+any trusted intermediary.  Prior work on MPC-based auctions has relied on
+small sets of known, trusted servers communicating over direct TCP
+connections, leaving the combination of multi-party computation with
+transport-layer anonymity unexplored.  This project combined the MASCOT
+protocol (which computes the auction winner without revealing losing bids,
+even if all but one party is corrupt) with Veilid, a peer-to-peer framework
+whose onion-routed private routes hide participants' IP addresses from each
+other and from network observers.  A working prototype was implemented in
+Rust (${\sim}$15,000 lines), using Veilid's distributed hash table as the
+sole coordination substrate, and benchmarked across devnets of 40--80 nodes
+with both the MASCOT and Shamir protocols under party counts from 3 to 20.
+The key finding is that MPC over a privacy-preserving overlay is feasible:
+the tunnel sustained hundreds of megabytes of MASCOT traffic and produced
+correct results at up to 12 parties, with the 15--19$\times$ overhead from
+onion routing representing the quantifiable cost of hiding participants'
+network identities. This cost that is fundamental to the privacy model but
+acceptable for the small party counts typical of real auctions.
