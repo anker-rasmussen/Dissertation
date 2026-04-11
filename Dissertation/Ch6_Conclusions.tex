@@ -1,76 +1,182 @@
 % Chapter 6: Conclusions and Discussion — Handbook 8.2.7
-% Tie up all themes. MUST include LSEPI section.
-% Revisit objectives, discuss conclusions, future work, reflections.
+% ~1500 words
+% Critical overview, LSEPI (mandatory), future work, reflections.
 
 \section{Conclusions and Discussion}
 \label{sec:conclusions}
 
-% TODO (~1500 words)
-
 \subsection{Objectives Revisited}
 \label{sec:conc-objectives}
 
-% For each PDD objective, state: met / partially met / not met, with evidence.
-%
-% 1. End-to-end auction flow (list -> bid -> MPC -> winner -> decrypt)
-%    - Status: [achieved / partially achieved]
-%    - Evidence: integration tests, e2e demo
-%
-% 2. Sealed-bid via MPC (MASCOT, N >= 2)
-%    - Status: [achieved]
-%    - Evidence: auction_n.mpc, mock-based tests for 3/5/10 parties
-%
-% 3. MPC-gated content decryption
-%    - Status: [achieved via commitment + challenge-response]
-%    - Note: PDD mentioned 1-out-of-N OT — descoped to simpler scheme. Discuss why.
-%
-% 4. Monero testnet settlement
-%    - Status: [not implemented]
-%    - Discuss scope reduction: complexity of Monero RPC integration,
-%      time constraints, not essential for demonstrating core MPC+Veilid contribution.
+\begin{enumerate}
+  \item \textbf{Listings and purchases: achieved.}  The system implemented
+    the full auction lifecycle: listing creation with AES-256-GCM content
+    encryption, sealed-bid submission with SHA-256 commitments, deadline-based
+    expiry, and decryption key delivery to the verified winner.  This is
+    demonstrated by the integration test suite (232 passing tests) and three
+    end-to-end tests on the playground devnet.
 
+  \item \textbf{Sealed-bid via MPC: achieved.}  The MASCOT and Shamir
+    protocols both computed the correct winner without revealing non-winning
+    bid values.  The 46-line \texttt{auction\_n.mpc} program ran correctly
+    for party counts from 2 to 20 (Shamir) or 2 to 10 (MASCOT, limited by
+    Veilid tunnel throughput).
+
+  \item \textbf{MPC-gated decryption: achieved (modified design).}  The
+    PDD proposed 1-out-of-$N$ oblivious transfer for decryption key delivery.
+    The implemented design used a simpler commitment-and-challenge scheme:
+    the winner proved knowledge of their committed bid, and the seller
+    released the key upon verification.  As discussed in
+    Section~\ref{sec:method-verification}, this provided equivalent privacy
+    because the seller already learns the winning bid as MPC party~0.
+
+  \item \textbf{Settlement on Monero testnet: not implemented.}  This
+    objective was descoped as it was not inline with the research goals of
+    the project, being more suited to a production system.  The time
+    originally allocated was spent on MPC tunnel reliability and the MASCOT
+    vs.\ Shamir benchmark comparison.
+\end{enumerate}
+9
 \subsection{Discussion}
 \label{sec:conc-discussion}
 
-% - Main contribution: demonstrated that Veilid + MPC can provide a working
-%   sealed-bid auction without a trusted auctioneer
-% - Security analysis reveals fundamental tradeoffs (seller trust, small-N threshold)
-% - Compare to prior work: Danish sugar beet auction had a trusted cooperative;
-%   this project removes that but introduces seller-as-party-0 trust assumption
-% - Link conclusions back to Context chapter
+The central question was whether MPC can be performed over a
+privacy-preserving peer-to-peer overlay at all.  The answer is yes: MASCOT
+and Shamir both produced correct auction results when tunnelled through
+Veilid's onion-routed private routes, for party counts from 2 to 20.  No
+trusted intermediary was required, no participant's IP address was exposed,
+and non-winning bid values were never revealed to anyone.
+
+\textbf{MPC over a privacy overlay is feasible.}  The Danish sugar-beet
+auction~\cite{bogetoft2009_mpc_live} demonstrated MPC for auctions, but over
+direct TCP among a small set of trusted servers.  This project showed that the
+same class of computation works in a fully decentralised, anonymous setting.
+The MPC tunnel sustained the hundreds of megabytes of traffic that MASCOT
+requires (109\,MB at $N{=}3$, 6.2\,GB at $N{=}10$) and delivered correct
+results at 100\% success rate up to $N{=}12$ on the 40-node devnet.
+
+\textbf{The cost of privacy is quantifiable.}  Veilid's onion routing added
+$15{-}19\times$ overhead to MASCOT computation time and $10{-}30\times$ to
+Shamir, attributable to ${\sim}$18\,ms per relay hop.  This is the
+fundamental cost of routing each MPC round through multiple encrypted hops
+rather than direct TCP, and it is the price paid for hiding participants'
+network identities.
+
+\textbf{Route management overhead is separable and fixable.}  Route exchange
+dominated total auction time (over 70\% of wall-clock duration), but this is
+an artefact of Veilid's current single-active-route constraint, which forces
+routes to be created and exchanged fresh for every auction.  With persistent
+routes (planned for Veilid~0.6.0~\cite{rioux2026_routing_overhaul}), this
+cost would be amortised to near zero, reducing a 100\,s auction to
+${\sim}$15\,s.
+
+\textbf{The security model involves real tradeoffs.}  MASCOT provides stronger
+guarantees (dishonest majority) but at a bandwidth cost that limits practical
+party counts.  Shamir is dramatically cheaper but relies on an honest-majority
+assumption that may not hold in an open marketplace.  For small auctions
+($N{=}3$), MASCOT's stronger security is particularly valuable because a
+single corrupt party under Shamir breaks all privacy.
 
 \subsection{Legal, Social, Ethical and Professional Issues}
 \label{sec:conc-lsepi}
 
-% MANDATORY section (handbook 8.2.7). Marks deducted if missing.
-%
-% - Dual-use risk: private marketplace could facilitate illicit trade
-%   - Mitigation: devnet only, no mainnet, testnet funds only, no deployment scripts for public
-% - Privacy vs accountability tradeoff
-%   - Sealed bids protect bidders but complicate dispute resolution
-% - Licensing compliance:
-%   - Veilid: MPL-2.0 (file-level copyleft, complied with)
-%   - MP-SPDZ: BSD-3-Clause (permissive)
-%   - All other deps: MIT/Apache-2.0
-% - BCS Code of Conduct: no work that endangers individuals
-% - Data protection: no PII collected, no human participants
-% - Revisit PDD LSEPI section — what changed during the project?
+\textbf{Dual-use risk.}  A private marketplace could in principle facilitate
+illicit exchange.  This risk is mitigated by design: the system operates only
+on a local devnet, no deployment scripts target the public Veilid network,
+no real funds are handled, and no mainnet or testnet cryptocurrency wallets
+are integrated.  The project is categorised as a Category~1 prototype not
+intended for distribution (PDD Section~1.6).
+
+\textbf{Privacy vs.\ accountability.}  Sealed bids protect bidders but
+complicate dispute resolution.  In a production deployment, a reputation
+system or escrow mechanism would be needed to balance privacy with
+accountability.
+
+\textbf{Licensing compliance.}  Veilid is licensed under MPL-2.0 (file-level
+copyleft); all modifications to Veilid files are published under MPL.  MP-SPDZ
+is BSD-3-Clause (permissive).  All other dependencies are MIT or Apache-2.0.
+No licensing conflicts exist.
+
+\textbf{Professional conduct.}  No human participants were involved.  All
+testing used automated processes on local infrastructure.  The BCS Code of
+Conduct was followed: the work does not endanger individuals, and the
+dual-use risks are acknowledged and mitigated.
+
+\textbf{Statement on illicit uses.}  The author explicitly condemns any
+attempt to adapt this research for illicit trade, exploitation, or other
+illegal activity.  The work is motivated by technical research questions:
+privacy-preserving auction protocols, MPC integration, and overlay
+networking,rather than any intent to facilitate wrongdoing.
 
 \subsection{Future Work}
 \label{sec:conc-future}
 
-% - Threshold decryption: remove seller trust assumption (key shared among MPC parties)
-% - Dishonest-majority protocol (SPDZ) for small auctions
-% - Monero testnet integration for settlement
-% - Mobile client (Veilid supports mobile platforms)
-% - Formal protocol verification (ProVerif / Tamarin)
-% - Anti-replay nonces on message types
-% - Rate limiting / DoS protection
+\begin{itemize}
+  \item \textbf{Threshold decryption.}  Share the decryption key among MPC
+    parties using threshold cryptography, removing the seller-as-single-point-of-trust
+    assumption.  This is the highest-priority improvement.
+  \item \textbf{Vickrey (second-price) auctions.}  The winner pays the
+    second-highest bid rather than their own.  This would require the MPC
+    program to output the second-highest value and changes to the verification
+    scheme, since the winner would need to prove they bid \emph{at least} the
+    second price rather than proving their exact bid.
+  \item \textbf{Monero testnet settlement.}  The originally planned payment
+    layer would complete the end-to-end flow from bidding to settlement.
+  \item \textbf{Anti-replay nonces.}  Add explicit nonces to
+    \texttt{DecryptionHashTransfer} messages to prevent replay attacks
+    across auctions.
+  \item \textbf{Formal verification.}  Model the protocol in a formal
+    verification language to mechanically prove the privacy properties
+    claimed in the security analysis.
+  \item \textbf{Public network evaluation.}  Benchmark on the public Veilid
+    network to understand real-world route latency and anonymity set size.
+  \item \textbf{Adaptive protocol selection.}  Automatically choose between
+    dishonest-majority (MASCOT) and honest-majority (Shamir) based on party
+    count: at small $N$, corrupting a majority is realistic and MASCOT's
+    stronger guarantees justify the cost; as $N$ grows, the difficulty of
+    corruption increases and the system could safely switch to Shamir for
+    better scalability.
+\end{itemize}
 
 \subsection{Reflections}
 \label{sec:conc-reflections}
 
-% - What was learned (Veilid, MPC, Rust async, P2P development)
-% - Challenges faced (Veilid API stability, MPC sidecar complexity, devnet setup)
-% - What would be done differently (start MPC integration earlier, simpler UI)
-% - Project management: how plan deviated from PDD timeline
+The project's primary contribution is a proof of feasibility: multi-party
+computation can be performed over a privacy-preserving overlay network, and
+the cost of doing so can be measured.  Before this work, no empirical data
+existed on the overhead of tunnelling MPC through onion-routed messaging.
+The benchmarks confirmed that the honest-vs-dishonest-majority choice has
+first-order effects on both performance and reliability, not just theoretical
+security. This is consistent with findings from Araki et
+al.~\cite{araki2017_honest_majority}, who demonstrated that honest-majority
+protocols scale orders of magnitude better than dishonest-majority
+alternatives.  This suggests a pragmatic hybrid strategy: at small party counts, where
+corrupting a majority is realistic, dishonest-majority protocols like MASCOT
+are worth their cost.  As the party count grows, the difficulty of
+corrupting a majority increases, and the performance advantage of
+honest-majority protocols becomes compelling.  At some threshold, the
+threat model can safely be relaxed in exchange for dramatically better
+scalability.
+
+The most important distinction that emerged is between \emph{fundamental}
+and \emph{accidental} overhead.  The MPC tunnel's 15--19$\times$ slowdown
+is fundamental: it is the cost of onion routing each round through encrypted
+relay hops, and it buys real privacy.  The route exchange overhead (50--90\,s
+per auction) is accidental: it results from Veilid's single-active-route
+constraint forcing route teardown and recreation for every auction.  With
+persistent routes, this cost disappears entirely, and the system becomes
+practical for interactive use (${\sim}$15\,s per auction at $N{=}3$).
+
+The most challenging aspect was Veilid's private route lifecycle.  Silent
+route death, the single-active-route constraint, and the undocumented
+self-import requirement each caused multi-day debugging sessions.  The
+resulting workarounds (readiness barrier, reactive refresh, DHT-backed
+route exchange) are correct but fragile.  These are framework maturity
+issues rather than fundamental limitations of the approach.
+
+If starting again, the author would begin MPC integration earlier (Milestone~1
+rather than Milestone~2) and spend less time on the UI.  The headless binary
+and benchmark harness proved far more valuable for demonstrating and measuring
+the system than the desktop interface.  The author would also invest more time
+in threat modelling and, given sufficient schedule, attempt stretch goals such
+as implementing malicious nodes to generate real adversarial test data.

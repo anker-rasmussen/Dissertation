@@ -53,7 +53,7 @@ volume = {476},
 pages = {357-372},
 year = {2019},
 issn = {0020-0255},
-doi = {https://doi.org/10.1016/j.ins.2018.10.024},
+doi = {10.1016/j.ins.2018.10.024},
 url = {https://www.sciencedirect.com/science/article/pii/S0020025518308338},
 author = {Chuan Zhao and Shengnan Zhao and Minghao Zhao and Zhenxiang Chen and Chong-Zhi Gao and Hongwei Li and Yu-an Tan},
 keywords = {Secure Multi-Party Computation, Generic protocol, Cloud security, Secure outsourcing, Privacy-preserving technology},
@@ -157,20 +157,20 @@ series = {PaPoC '22}
 }
 
 
-@misc{ebay_help_bidding,
+@online{ebay_help_bidding,
   title   = {How bidding works},
   author  = {{eBay Help}},
   year    = {2025},
   url     = {https://www.ebay.co.uk/help/buying/bidding/bidding?id=4003},
-  note    = {Accessed 29 Oct 2025}
+  urldate = {2025-10-29}
 }
 
-@misc{fb_marketplace_help,
+@online{fb_marketplace_help,
   title   = {Marketplace Help Center: Using Marketplace to buy and sell},
   author  = {{Meta/Facebook Help Center}},
   year    = {2025},
   url     = {https://www.facebook.com/help/1713241952104830},
-  note    = {Accessed 29 Oct 2025}
+  urldate = {2025-10-29}
 }
 
 @misc{daian2019_flashboys2,
@@ -246,21 +246,12 @@ location = {Virtual Event, USA},
 series = {CCS '20}
 }
 
-@InProceedings{damgaard2012_spdz,
-author="Damg{\aa}rd, Ivan
-and Pastro, Valerio
-and Smart, Nigel
-and Zakarias, Sarah",
-editor="Safavi-Naini, Reihaneh
-and Canetti, Ran",
-title="Multiparty Computation from Somewhat Homomorphic Encryption",
-booktitle="Advances in Cryptology -- CRYPTO 2012",
-year="2012",
-publisher="Springer Berlin Heidelberg",
-address="Berlin, Heidelberg",
-pages="643--662",
-abstract="We propose a general multiparty computation protocol secure against an active adversary corrupting up to {\$}{\$}n-1{\$}{\$}of the n players. The protocol may be used to compute securely arithmetic circuits over any finite field {\$}{\$}{\backslash}mathbb {\{}F{\}}{\_}{\{}p^k{\}}{\$}{\$}. Our protocol consists of a preprocessing phase that is both independent of the function to be computed and of the inputs, and a much more efficient online phase where the actual computation takes place. The online phase is unconditionally secure and has total computational (and communication) complexity linear in n, the number of players, where earlier work was quadratic in n. Moreover, the work done by each player is only a small constant factor larger than what one would need to compute the circuit in the clear. We show this is optimal for computation in large fields. In practice, for 3 players, a secure 64-bit multiplication can be done in 0.05 ms. Our preprocessing is based on a somewhat homomorphic cryptosystem. We extend a scheme by Brakerski et al., so that we can perform distributed decryption and handle many values in parallel in one ciphertext. The computational complexity of our preprocessing phase is dominated by the public-key operations, we need {\$}{\$}O(n^2/s){\$}{\$}operations per secure multiplication where s is a parameter that increases with the security parameter of the cryptosystem. Earlier work in this model needed {\$}{\$}{\backslash}varOmega (n^2){\$}{\$}operations. In practice, the preprocessing prepares a secure 64-bit multiplication for 3 players in about 13 ms.",
-isbn="978-3-642-32009-5"
+@misc{damgaard2011_spdz,
+  author       = {Damg{\aa}rd, Ivan and Pastro, Valerio and Smart, Nigel P. and Zakarias, Sarah},
+  title        = {Multiparty Computation from Somewhat Homomorphic Encryption},
+  howpublished = {Cryptology {ePrint} Archive, Paper 2011/535},
+  year         = {2011},
+  url          = {https://eprint.iacr.org/2011/535}
 }
 
 
@@ -290,11 +281,175 @@ numpages = {181}
   note     = {Original CryptoNote whitepaper; commonly cited in Monero literature}
 }
 
+@inproceedings{keller2016_mascot,
+  author    = {Keller, Marcel and Orsini, Emmanuela and Scholl, Peter},
+  title     = {{MASCOT}: Faster Malicious Arithmetic Secure Computation with Oblivious Transfer},
+  booktitle = {Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security},
+  series    = {CCS '16},
+  year      = {2016},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  pages     = {830--842},
+  doi       = {10.1145/2976749.2978357}
+}
+
+@article{shamir1979_secret_sharing,
+  author  = {Shamir, Adi},
+  title   = {How to Share a Secret},
+  journal = {Communications of the ACM},
+  volume  = {22},
+  number  = {11},
+  pages   = {612--613},
+  year    = {1979},
+  doi     = {10.1145/359168.359176}
+}
+
+@software{stigmerge2024,
+  author  = {Casey Marshall},
+  title   = {Stigmerge: Anonymous Decentralized File Sharing over Veilid},
+  year    = {2024},
+  url     = {https://github.com/cmars/stigmerge},
+  urldate = {2026-02-14}
+}
+
+@online{veilid-devnet-mr444,
+  author  = {Kali Jackson},
+  title   = {Add {Veilid} Server Docker Container Implementation},
+  year    = {2024},
+  url     = {https://gitlab.com/veilid/veilid/-/merge_requests/444},
+  urldate = {2026-04-08},
+  note    = {Draft merge request}
+}
+
+@online{ebay_about2025,
+  author  = {{eBay Inc.}},
+  title   = {Our Company},
+  year    = {2025},
+  url     = {https://www.ebayinc.com/company/},
+  urldate = {2026-03-27}
+}
+
+@online{ebay_history2025,
+  author  = {{eBay Inc.}},
+  title   = {Our History},
+  year    = {2025},
+  url     = {https://www.ebayinc.com/company/our-history/},
+  urldate = {2026-03-27}
+}
+
+@online{opensea2025,
+  author  = {{OpenSea}},
+  title   = {{OpenSea}: {NFT} Marketplace and Token Trading},
+  year    = {2025},
+  url     = {https://opensea.io/},
+  urldate = {2026-03-26}
+}
+
+@online{opensea_chains2025,
+  author  = {{OpenSea}},
+  title   = {Which blockchains are compatible with {OpenSea}?},
+  year    = {2025},
+  url     = {https://support.opensea.io/en/articles/8867082-which-blockchains-are-compatible-with-opensea},
+  urldate = {2026-03-26}
+}
+
+@online{far_part14,
+  author  = {{U.S. General Services Administration}},
+  title   = {Federal Acquisition Regulation, Part 14 --- Sealed Bidding},
+  year    = {2025},
+  url     = {https://www.acquisition.gov/far/part-14},
+  urldate = {2026-03-26}
+}
+
+@online{rioux2026_ip_punishment,
+  author  = {Christien Rioux},
+  title   = {{IP} {NAT} punishment behaviour},
+  year    = {2026},
+  url     = {https://discord.com/invite/5Qx3B9eedU},
+  urldate = {2026-03-27},
+  note    = {Veilid Discord (\#veilid-core channel), 15 February 2026}
+}
+
+@online{rioux2025_dht_patterns,
+  author  = {Christien Rioux},
+  title   = {{DHT} record patterns and 0.6.0 route autopublish},
+  year    = {2025},
+  url     = {https://discord.com/invite/5Qx3B9eedU},
+  urldate = {2026-04-02},
+  note    = {Veilid Discord (\#veilid-core channel), 07 October 2025}
+}
+
+@online{rioux2026_routing_overhaul,
+  author  = {Christien Rioux},
+  title   = {Private route improvements planned for 0.6.0},
+  year    = {2026},
+  url     = {https://discord.com/invite/5Qx3B9eedU},
+  urldate = {2026-04-02},
+  note    = {Veilid Discord (\#veilid-core channel), 03 January 2026}
+}
+
+@online{veilid_bootstrap_setup,
+  author  = {{Veilid Project}},
+  title   = {Bootstrap Setup},
+  year    = {2025},
+  url     = {https://gitlab.com/veilid/veilid/-/blob/main/BOOTSTRAP-SETUP.md},
+  urldate = {2026-03-27}
+}
+
+@online{veilid_website,
+  author   = {{Veilid Project}},
+  title    = {Veilid --- A Privacy-First Application Framework},
+  url      = {https://veilid.com},
+  urldate  = {2026-04-08},
+  year     = {2025}
+}
+
 @online{veilid_developer_book,
   author   = {{Veilid Project}},
   title    = {Veilid Developer Book},
   url      = {https://veilid.gitlab.io/developer-book/},
   urldate  = {2025-10-31},
-  year     = {2025},
-  note     = {Official developer documentation for the Veilid framework}
+  year     = {2025}
+}
+
+@inproceedings{dingledine2004_tor,
+  author    = {Dingledine, Roger and Mathewson, Nick and Syverson, Paul},
+  title     = {Tor: The Second-Generation Onion Router},
+  booktitle = {Proceedings of the 13th USENIX Security Symposium},
+  year      = {2004},
+  pages     = {303--320},
+  publisher = {USENIX Association},
+  url       = {https://svn-archive.torproject.org/svn/projects/design-paper/tor-design.pdf},
+  urldate   = {2026-04-02}
+}
+
+@techreport{zantout2011_i2p,
+  author  = {Zantout, Bassam and Haraty, Ramzi},
+  title   = {{I2P} Data Communication System},
+  year    = {2011},
+  journal = {Proceedings of ICN 2011},
+  pages   = {401--409},
+  url     = {https://geti2p.net/en/docs/how/tech-intro},
+  urldate = {2026-04-02}
+}
+
+@misc{benet2014_ipfs,
+  author       = {Benet, Juan},
+  title        = {{IPFS} --- Content Addressed, Versioned, {P2P} File System},
+  year         = {2014},
+  eprint       = {1407.3561},
+  archivePrefix= {arXiv},
+  primaryClass = {cs.NI},
+  url          = {https://arxiv.org/abs/1407.3561},
+  urldate      = {2026-04-02}
+}
+
+@inproceedings{araki2017_honest_majority,
+  author    = {Araki, Toshinori and Barak, Assi and Furukawa, Jun and Lichter, Tamar and Lindell, Yehuda and Nof, Ariel and Ohara, Kazuma and Watzman, Adi and Weinstein, Or},
+  title     = {Optimized Honest-Majority {MPC} for Malicious Adversaries --- Breaking the 1 Billion-Gate Per Second Barrier},
+  booktitle = {2017 IEEE Symposium on Security and Privacy (SP)},
+  year      = {2017},
+  pages     = {843--862},
+  doi       = {10.1109/SP.2017.15},
+  publisher = {IEEE}
 }
