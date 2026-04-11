@@ -1,118 +1,648 @@
 % Chapter 5: Results — Handbook 8.2.6
-% Present ALL results. Every method activity should have corresponding results here.
-% ~6000+ words for BSc (significant portion of the report).
-% Include diagrams, code snippets (in text, not as figures), test outputs.
+% ~6000 words
 
 \section{Results}
 \label{sec:results}
 
-% TODO (~6000 words)
+This chapter presents the evidence that the system works, how well it performs,
+and what privacy it actually provides.  Each section ties back to the security
+policy defined in Section~\ref{sec:intro-security-policy}.
 
 \subsection{System Architecture}
 \label{sec:results-architecture}
 
-% - Final module structure diagram
-% - Trait hierarchy: DhtStore, MessageTransport, MpcRunner, TimeProvider, RandomSource
-% - Public API surface (key types exported from lib.rs)
-% - DHT record schema: 4 subkeys (listing data, bid index, announcements, bidder registry)
+The final system had four layers: a Dioxus desktop UI (with a headless
+binary for testing), an auction coordination layer (state machine, DHT
+operations, MPC orchestration), the MPC tunnel proxy (bridging MP-SPDZ's
+TCP to Veilid \texttt{app\_call}), and the Veilid overlay (DHT, private
+routes, node identity).  There was no central server and no direct IP
+connections between participants.  All persistent state was CBOR-serialised
+into DHT records and all real-time communication travelled over
+onion-encrypted private routes.
 
-% Include: module dependency diagram (Figure)
-% Include: DHT subkey layout table
+\subsubsection{DHT as Shared State}
+
+The marketplace is bootstrapped from a single shared DHT record: the
+\emph{master registry}.  All Lattice nodes know this record's key (derived
+from the network key) and share a write keypair, so any node can add entries.
+The full record hierarchy is shown in Figure~\ref{fig:dht-hierarchy}.
+
+The DHT lifecycle (seller registration, listing creation, discovery, bidding,
+and MPC route exchange) follows the record hierarchy in
+Figure~\ref{fig:dht-hierarchy}.  The master registry and bid announcement
+registries use a G-Set CRDT: each write merges the local set with the DHT
+value via commutative union, so all nodes converge regardless of write order.
 
 \subsection{Auction Protocol}
 \label{sec:results-protocol}
 
-% - Full protocol sequence diagram (Figure)
-%   1. Seller creates listing → encrypts content → publishes to DHT
-%   2. Bidders discover listing → create sealed bid (commitment) → submit via DHT
-%   3. Deadline expires → all parties compute sorted_bidders() for party assignment
-%   4. MPC route exchange via MpcRouteAnnouncement
-%   5. MPC execution (MASCOT, N parties)
-%   6. Seller sends WinnerDecryptionRequest challenge
-%   7. Winner responds with WinnerBidReveal (bid_value + nonce)
-%   8. Seller verifies SHA256(bid || nonce) == commitment → sends DecryptionHashTransfer
+The auction lifecycle, following the state machine in
+Figure~\ref{fig:auction-fsm}, proceeds in seven phases:
 
-% - AuctionMessage enum (code snippet)
-% - Bid commitment scheme detail
-% - Party assignment algorithm (sorted_bidders from bid_record.rs)
+\begin{enumerate}
+  \item \textbf{Listing creation.}  The seller generates an AES-256-GCM key,
+    encrypts the listing content, publishes the listing record to the DHT,
+    and announces the listing key via broadcast \texttt{app\_message} to
+    registered peers.
+
+  \item \textbf{Bid submission.}  Each bidder creates a commitment
+    $C = \text{SHA-256}(\mathit{bid} \| \mathit{nonce})$ with a
+    cryptographically random 32-byte nonce, writes a bid record to the DHT,
+    and announces the bid key to the listing's announcement registry.  The
+    seller's node automatically places an auto-bid at the reserve price
+    (party~0).
+
+  \item \textbf{Deadline and party assignment.}  When the listing deadline
+    expires, all nodes independently compute the same party assignment by
+    sorting bidders by timestamp ascending (the seller's auto-bid is always
+    earliest, becoming party~0).  This deterministic assignment requires no
+    coordination.
+
+  \item \textbf{MPC route exchange.}  Each party creates a Veilid private
+    route and writes the route blob to their bid record's subkey~1.  Parties
+    discover each other's routes via DHT reads with \texttt{app\_message}
+    announcements as a fast path.  A readiness barrier
+    (\texttt{MpcReady} via \texttt{app\_call}) ensures all routes are live
+    before proceeding.
+
+  \item \textbf{MPC execution.}  The \texttt{MpcOrchestrator} launches a
+    local \texttt{mascot-party.x} (or \texttt{shamir-party.x}) process,
+    feeds each party's bid value as secret input, and tunnels all inter-party
+    TCP traffic through the Veilid \texttt{app\_call} tunnel.  The MPC
+    program (Listing~\ref{lst:auction-mpc}) computes the maximum bid and
+    reveals the winner ID and winning bid value only to party~0.
+
+  \item \textbf{Winner verification.}  The seller sends a challenge to the
+    claimed winner via \texttt{app\_call}.  The winner responds with their
+    bid value and nonce; the seller verifies that
+    $\text{SHA-256}(\mathit{bid} \| \mathit{nonce}) = C$.
+
+  \item \textbf{Decryption key transfer.}  Upon successful verification, the
+    seller sends the AES-256-GCM decryption key to the winner via
+    \texttt{app\_call}.
+\end{enumerate}
+
+
+\begin{figure}[htbp]
+\begin{lstlisting}[language=Python,basicstyle=\small\ttfamily,numbers=left,
+  numberstyle=\tiny\color{gray},frame=single,xleftmargin=2em]
+# n-Party Sealed-Bid Auction (First-Price)
+# Party 0 = seller (reserve price). Parties 1..N = bidders.
+
+n_parties = int(program.args[1])
+
+# Each party inputs their bid as a secret integer
+bids = Array(n_parties, sint)
+for i in range(n_parties):
+    bids[i] = sint.get_input_from(i)
+
+# Find maximum bid and winner
+max_bid = bids[0]
+winner = sint(0)
+for i in range(1, n_parties):
+    is_higher = bids[i] > max_bid
+    max_bid = is_higher.if_else(bids[i], max_bid)
+    winner = is_higher.if_else(sint(i), winner)
+
+# Reveal winner and bid ONLY to party 0 (seller)
+winner_id = winner.reveal_to(0)
+winning_bid = max_bid.reveal_to(0)
+print_ln_to(0, 'Winner: Party %s', winner_id)
+print_ln_to(0, 'Winning bid: %s', winning_bid)
+
+# Each other party learns only won/lost
+for party in range(n_parties):
+    am_i_winner = (winner == sint(party)).reveal_to(party)
+    print_ln_to(party, 'You won: %s', am_i_winner)
+\end{lstlisting}
+\caption{The MPC auction program (\texttt{auction\_n.mpc}), written in the
+  MP-SPDZ DSL.  The comparison on line~16 and conditional select on lines
+  17--18 are computed over secret-shared values - \(sint\), the provided primitive 
+  for an (appropriately named) secret int within SPDZ. No party sees intermediate results. 
+  The \texttt{reveal\_to(0)} calls on lines~21--22 ensure that
+  only party~0 (the seller) learns the winner identity and winning bid.}
+\label{lst:auction-mpc}
+\end{figure}
 
 \subsection{MPC Integration}
 \label{sec:results-mpc}
 
-% - auction_n.mpc program (code snippet + explanation)
-% - MpcSidecar: TCP tunnelling architecture over Veilid routes
-% - MpcClient: External IO protocol (handshake, triple reception, masked input, output)
-% - MP-SPDZ process lifecycle (current state — manual vs automated)
+\subsubsection{The Auction Program}
+
+The \texttt{auction\_n.mpc} program (46 lines) implemented a first-price
+sealed-bid auction for $N$ parties.  Each party inputs their bid as a secret
+integer; the program computes the maximum and reveals (i)~the winner identity
+and winning bid to party~0 only, and (ii)~a binary ``won: 0/1'' to each other
+party.  The program is compiled once and executed with the appropriate party
+count flag (\texttt{-N}). Note that for honest majority protocols executed within SPDZ, OpenSSL certificates
+are required to be generated at compile time for each potential participant, and shared before the MPC reaches runtime. 
+This is an advantage of using a dishonest majority protocol; no SSL secret shares prior to executing the MPC.
+
+\subsubsection{Tunnel Architecture}
+
+The MPC tunnel sent TCP over Veilid private routes.  Outgoing and incoming
+traffic each ran in its own async task.  Sends were pipelined (up to eight
+\texttt{app\_call} requests in flight at once) to minimize network latency.
+The receiver reassembled the byte stream using sequence numbers and a reorder
+buffer, since Veilid does not guarantee ordered delivery. Veilid has a limit of 32KB payloads
+per communication envelope, and so the app\_calls were maxsized at 32KB each.
+
+Table~\ref{tab:tunnel-volumes} shows the data volumes per protocol and party
+count.  MASCOT's pairwise OT produces two to three orders of magnitude more
+tunnel traffic than Shamir, meaning more \texttt{app\_call} round trips and
+longer wall-clock times.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Protocol} & $N$ & \textbf{Per-party (MB)} & \textbf{Total (MB)} &
+  \textbf{App\_calls} \\
+\midrule
+MASCOT & $3$  & 37   & 107   & 3,416 \\
+MASCOT & $6$  & 209  & 1,192 & 38,165 \\
+MASCOT & $10$ & 653  & 6,213 & 198,747 \\
+\midrule
+Shamir & $3$  & 0.02  & 0.11  & 4 \\
+Shamir & $6$  & 0.21  & 1.2   & 39 \\
+Shamir & $10$ & 0.61  & 4.2   & 134 \\
+Shamir & $20$ & 2.5   & 25.6  & 842 \\
+\bottomrule
+\end{tabular}
+\caption{Data volumes tunnelled through Veilid per auction.  Each
+  \texttt{app\_call} carries up to 32\,KB of payload.  MASCOT transfers
+  roughly 1,000$\times$ more data than Shamir at $N{=}3$, growing to
+  1,500$\times$ at $N{=}10$ due to $O(N^2)$ pairwise OT.}
+\label{tab:tunnel-volumes}
+\end{table}
+
+\subsubsection{Route Lifecycle Challenges}
+
+Veilid private routes are the single largest source of engineering complexity
+in the system.  Three problems were encountered and solved:
+
+\begin{enumerate}
+  \item \textbf{Silent death.}  Routes die without notification; the only
+    signal is a timeout on the next \texttt{app\_call}.  The system implemented
+    reactive route refresh: if the readiness barrier detected fewer successful
+    acknowledgements than expected, the node recreated its route, republished
+    to the DHT, and polled peers' DHT entries for updated blobs.
+
+  \item \textbf{Single active route.}  Veilid supports only one active
+    private route per node.  Creating a second route invalidates the first.
+    This means MPC sessions must be sequential, never concurrent.  When
+    multiple auctions expire simultaneously, expired listings are sorted
+    deterministically by key to ensure all nodes process them in the same
+    order.
+
+  \item \textbf{Self-import requirement.}  After creating a private route
+    via \texttt{new\_private\_route()}, the node must call
+    \texttt{import\_remote\_private\_route()} on its own blob.  Without this
+    step, only one of $N$ created routes is deliverable.  This behaviour is
+    undocumented but was confirmed by the Veilid core developers.
+\end{enumerate}
+
+These workarounds add approximately 200 lines of code.  Veilid~0.6.0 will
+introduce DHT-published route blobs that are automatically fetched and
+imported on use, eliminating the need for manual route
+management~\cite{rioux2025_dht_patterns}.
 
 \subsection{User Interface}
 \label{sec:results-ui}
 
-% - Dioxus desktop application screenshots
-% - Key screens: listing creation, marketplace browse, bid placement, auction result
-% - devnet-ctl CLI tool
+The Dioxus desktop application provided four main views: a marketplace
+browser showing active listings, a listing creation form with deadline and
+reserve price fields, a bid placement dialog, and an auction results view
+showing the winner notification or decryption key.  The UI communicated with
+the auction coordination layer through shared \texttt{Arc<Mutex<AppState>{}>}
+state, polled by the Dioxus render loop.
+
+The UI was not a focus of the project; it served as a thin presentation layer
+demonstrating that the underlying protocol is usable interactively.  A
+separate headless binary (\texttt{market-headless}) provided the same auction
+logic without the UI, enabling automated E2E testing and benchmarking.  The
+headless binary accepts listing parameters, bid values, and deadlines via
+command-line arguments and environment variables, writes structured output
+(JSON events) to stdout, and exits after the auction completes or times out.
 
 \subsection{Testing and Verification}
 \label{sec:results-testing}
 
-% - Test matrix: unit / integration / e2e
-% - Integration test results (table or summary)
-%   - 3-party: highest bid wins, decryption key transfer, ties
-%   - 5-party: scaling
-%   - 10-party: scaling
-%   - Edge cases: reserve price, expired listings, duplicate bids
-% - Mock harness design (MultiPartyHarness — brief code snippet)
-% - E2E test setup: Docker devnet + LD_PRELOAD IP spoofing
+\subsubsection{Test Coverage}
+
+Table~\ref{tab:test-matrix} summarises the test suite.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{llrl}
+\toprule
+\textbf{Level} & \textbf{Scope} & \textbf{Count} & \textbf{Runtime} \\
+\midrule
+Unit        & Modules (traits, serialisation, crypto) & 169 & $< 1$\,s \\
+Integration & Full $N$-party auctions (mock DHT)      & 63  & $< 1$\,s \\
+E2E         & Playground devnet, real Veilid networking & 3           & 3--8\,min each \\
+\bottomrule
+\end{tabular}
+\caption{Test matrix.}
+\label{tab:test-matrix}
+\end{table}
+
+\subsubsection{Integration Test Results}
+
+The mock-based integration tests exercise the auction state machine with
+3, 5, and 10 parties, covering:
+\begin{itemize}[noitemsep]
+  \item Highest bid wins and receives decryption key.
+  \item Tied bids resolved by earliest timestamp.
+  \item Reserve price enforced (auto-bid wins if no bidder exceeds it).
+  \item Expired listings detected and processed.
+  \item Commitment verification rejects incorrect nonces.
+\end{itemize}
+
+All 232 tests (unit + integration) pass consistently with zero flakiness.
+
+\subsubsection{End-to-End Test Results}
+
+The three E2E tests ran against a 20-node playground devnet:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Happy path} (169\,s): single 3-party auction
+    completes successfully, winner receives decryption key.
+  \item \textbf{Sequential} (380\,s): two auctions in sequence;
+    tests route refresh between sessions.
+  \item \textbf{Concurrent} (284\,s): two auctions with overlapping
+    deadlines; verifies deterministic ordering prevents deadlock.
+\end{itemize}
+
+All three tests pass reliably on a clean devnet.  The devnet must be
+restarted between test runs because Veilid's routing tables retain stale
+entries for nodes that no longer exist; reconnecting on the same IP triggers
+a one-hour penalty before the node is accepted again.  Additionally,
+reconnecting with a different node identity on the same IP forces peers to
+flush their cached knowledge of the previous node, and Veilid nodes
+generally reject multiple node identities from a single IP address.
 
 \subsection{Performance Benchmarks}
 \label{sec:results-benchmarks}
 
+The benchmark harness ran each configuration 5 times across three devnet
+sizes (40, 60, 80 nodes), with party counts from 3 to 20.  Benchmarks were
+run across two machines and results were combined:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{Laptop}: AMD Ryzen AI 5 340 (12 cores) @ 4.90\,GHz,
+    32\,GB DDR5, Arch Linux.
+  \item \textbf{Desktop}: AMD Ryzen 7 5800X (16 threads) @ 4.85\,GHz,
+    32\,GB DDR4, Arch Linux.
+\end{itemize}
+
+Figures in this section are generated from 354 trial rows
+(153 direct TCP, 201 over Veilid).
+
 \input{Figures/benchmarks}
+
+\subsubsection{Direct MPC Baseline}
+
+Figure~\ref{fig:direct-mpc-baseline} shows MPC computation time on direct
+TCP (localhost, no Veilid overlay).  MASCOT scales quadratically with party
+count due to pairwise OT setup: 0.21\,s at $N{=}3$, rising to 5.83\,s at
+$N{=}10$.  Shamir scales linearly: 0.03\,s at $N{=}3$ to 0.58\,s at
+$N{=}20$.  The performance difference is roughly $30\times$ at $N{=}10$.
+
+Figure~\ref{fig:bandwidth} shows the bandwidth cost: MASCOT sends 37\,MB per
+party at $N{=}3$ and 653\,MB at $N{=}10$ ($O(N^2)$ growth), while Shamir
+sends 0.02\,MB at $N{=}3$ and 2.5\,MB at $N{=}20$ (linear growth).
+
+\subsubsection{Veilid Tunnel Overhead}
+
+Figure~\ref{fig:overhead} compares direct TCP with Veilid-tunnelled MPC
+computation time.  The Veilid tunnel added approximately $15{-}19\times$
+overhead for MASCOT and $10{-}30\times$ for Shamir.  This section analyses
+where that overhead comes from.
+
+\textbf{Per-round latency.}  Each MPC communication round requires at least
+one \texttt{app\_call} round trip through Veilid's onion-routed private routes.
+Each private route traverses two relay hops (the default on the devnet), so a
+single \texttt{app\_call} traverses at minimum four hops (sender $\to$ two
+relays $\to$ recipient, then back).  At each hop, Veilid performs
+Curve25519/XSalsa20-Poly1305 decryption on the envelope, routes the payload
+to the next hop, and re-encrypts.  Table~\ref{tab:per-round-latency} shows
+the resulting per-round latency for both protocols.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Protocol} & $N$ & \textbf{Rounds} & \textbf{Direct (ms/round)} &
+  \textbf{Veilid (ms/round)} & \textbf{Slowdown} \\
+\midrule
+MASCOT  & $3$  & 257  & 0.65  & 17.9  & $28\times$ \\
+MASCOT  & $6$  & 963  & 1.28  & 22.2  & $17\times$ \\
+MASCOT  & $10$ & 2483 & 2.32  & 36.4  & $16\times$ \\
+Shamir  & $3$  & 35   & 0.05  & 10.9  & $209\times$ \\
+Shamir  & $10$ & 122  & 0.38  & 29.3  & $77\times$ \\
+Shamir  & $20$ & 242  & 1.26  & ---   & ---  \\
+\bottomrule
+\end{tabular}
+\caption{Per-round MPC latency: direct TCP vs.\ Veilid tunnel (40-node
+  devnet).  Per-round latency is computed as MPC wall-clock time divided
+  by round count.  Shamir $N{=}20$ is absent because no trial succeeded
+  on the 40-node devnet.}
+\label{tab:per-round-latency}
+\end{table}
+
+The per-round overhead explains why the \emph{aggregate} overhead factor
+differs between MASCOT and Shamir.  MASCOT performs substantial local
+computation per round (OT extension, MAC generation), so the fixed
+${\thicksim}$18\,ms network latency is a smaller fraction of each round's total
+time.  Shamir's local computation is sub-microsecond, so the same
+${\thicksim}$18\,ms network latency accounts for nearly all of each round's
+cost, producing a higher per-round slowdown factor.  In absolute terms,
+Shamir remains far faster due to fewer rounds and less data per round.
+
+\textbf{Tunnel throughput.}  The tunnel's effective throughput is limited by
+\texttt{app\_call} round-trip time and pipeline depth.  With a pipeline depth
+of 8 and ${\thicksim}$18\,ms per \texttt{app\_call}, the theoretical maximum
+throughput is $8 \times 32\,\text{KB} / 18\,\text{ms} \approx 14\,\text{MB/s}$.
+In practice, the tunnel sustained approximately 2.5\,MB/s for MASCOT $N{=}3$
+(109\,MB in 44\,s of MPC time) and 3\,KB/s for Shamir $N{=}3$ (116\,KB in
+0.38\,s).  The gap between theoretical and observed throughput for MASCOT
+arises because not all 8 pipeline slots are always filled: the MP-SPDZ process
+alternates between sending data and waiting for responses in each round.
+
+\textbf{Cryptographic cost per hop.}  Each Veilid relay hop performs
+envelope decryption (XSalsa20-Poly1305) and re-encryption for the next hop.
+On the benchmark hardware (Ryzen AI 5 340), XSalsa20-Poly1305 processes
+${\thicksim}$1\,GB/s, so the per-hop crypto cost for a 32\,KB \texttt{app\_call}
+payload is ${\thicksim}$32\,\textmu{}s. This is negligible compared to the network
+round-trip latency.  The overhead is therefore dominated by \emph{network
+traversal} (hop-by-hop forwarding, connection multiplexing, congestion
+backoff), not by cryptographic computation.
+
+\subsubsection{Total Auction Time}
+
+Figures~\ref{fig:veilid-mascot-total} and~\ref{fig:veilid-shamir-total} show
+total end-to-end auction time (route exchange + MPC + verification).
+Route exchange dominated total time at every party count.
+Figure~\ref{fig:time-breakdown} shows that for Shamir on a 40-node devnet,
+MPC computation accounted for less than 10\% of wall-clock time at all party
+counts tested.  Even for MASCOT, where the tunnel carries hundreds of
+megabytes, route exchange still accounted for 40--65\% of total time.
+
+The route exchange phase consists of four sequential steps, each involving
+Veilid operations:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Route construction} (${\thicksim}$5--15\,s): each party calls
+    \texttt{new\_custom\_private\_route()} and self-imports the blob.  This
+    involves Diffie--Hellman key exchanges with two relay nodes.
+  \item \textbf{DHT publishing} (${\thicksim}$2--5\,s): the route blob is
+    written to the party's bid DHT record (subkey~1).  DHT writes
+    propagate through the overlay's Kademlia routing.
+  \item \textbf{Route discovery} (${\thicksim}$10--40\,s, scales with $N$):
+    each party reads all other parties' DHT records to collect route blobs.
+    The $N{-}1$ DHT reads are sequential because each read forces a network
+    round trip to the DHT record's close nodes.
+  \item \textbf{Readiness barrier} (${\thicksim}$5--30\,s): each party sends an
+    \texttt{MpcReady} message via \texttt{app\_call} to every other party's
+    imported route, confirming all routes are live.  Failed deliveries trigger
+    a reactive refresh cycle: recreate the local route, republish to DHT,
+    re-poll peers.
+\end{enumerate}
+
+Route discovery dominates because it requires $O(N)$ sequential DHT reads,
+each taking 1--4\,s depending on how quickly the DHT close nodes respond.
+At $N{=}10$, nine DHT reads at ${\thicksim}$3\,s each account for ${\thicksim}$27\,s
+of the 213\,s median route exchange time; the remainder is consumed by the
+readiness barrier and retry cycles.
+
+This analysis suggests that reducing route exchange time (through
+persistent routes, DHT caching, or parallel route discovery) would
+have a larger impact on total auction time than optimising the MPC tunnel
+itself.
+
+\subsubsection{Reliability and Success Rates}
+
+Not all trials succeeded.  Figure~\ref{fig:success-rate} shows success rates
+by party count and devnet size.  On the 40-node devnet, MASCOT achieved
+100\% success up to $N{=}12$ (the largest party count tested).  Shamir
+maintained high success rates up to $N{=}10$ (70\%) but dropped to 0\% at
+$N{=}20$.  On the 80-node devnet, both protocols degraded: MASCOT fell to
+10\% at $N{=}10$ and Shamir to 40\% at $N{=}20$.
+
+Three distinct failure modes were observed:
+\begin{enumerate}[noitemsep]
+  \item \textbf{Route construction timeout}: the node could not find a
+    suitable relay node to form a 1-hop private route within the 50\,s
+    deadline (Veilid defaults to 2 hops; this was reduced to 1 for the
+    smaller devnet topology).  This occurred more frequently on larger
+    devnets where routing table convergence took longer.
+  \item \textbf{Dead route during MPC}: a relay node in an active private
+    route became unreachable mid-computation.  Because Veilid does not
+    notify applications of route death, the tunnel detected this only after
+    a 10\,s \texttt{app\_call} timeout, at which point the MPC process had
+    already stalled.
+  \item \textbf{MPC process timeout}: the 600\,s global deadline was
+    exceeded, typically because multiple dead-route recovery cycles consumed
+    the time budget.
+\end{enumerate}
+
+All failures were attributable to Veilid route instability under load, not
+to bugs in the auction protocol or MPC program.  The MP-SPDZ processes
+themselves never produced incorrect results when they completed.
+
+\subsubsection{Devnet Size Effects}
+
+Larger devnets (60, 80 nodes) showed \emph{worse} performance, not better.
+This is counterintuitive: one might expect more relay nodes to provide more
+routing options and thus better availability.  Three factors explain the
+degradation:
+
+\begin{enumerate}[noitemsep]
+  \item \textbf{Routing table convergence.}  Veilid's Kademlia-based routing
+    tables grow with network size.  On a freshly started 80-node devnet, each
+    node must discover and validate up to 79 peers via iterative lookups.
+    During this convergence period, route construction attempts may select
+    relay nodes that have not yet stabilised their own routing tables.
+  \item \textbf{Resource contention.}  All devnet nodes ran on the same
+    physical machine, sharing CPU, memory, and network stack.  At 80 nodes,
+    each Veilid process consumed ${\thicksim}$50\,MB of RAM and maintained
+    ${\thicksim}$40 UDP connections, totalling ${\thicksim}$4\,GB RAM and
+    ${\thicksim}$3,200 sockets.  Context switching and socket buffer contention
+    added artificial latency not present in a real distributed deployment.
+  \item \textbf{Relay selection quality.}  Veilid selects relay nodes based
+    on latency and reliability metrics that take time to accumulate.  On
+    larger devnets, the probability of selecting an under-performing relay
+    increases during the initial convergence period.
+\end{enumerate}
+
+On the public Veilid network, with thousands of nodes across diverse hardware
+and with stable long-running relays, the behaviour would likely differ.
+However, public network testing was not practical: Veilid enforces
+one-hour bans per IP for misconfigured nodes~\cite{rioux2026_ip_punishment},
+which occurs frequently during development, and running behind CGNAT meant
+nodes did not meet Veilid's reachability requirements for full relay
+participation, motivating the devnet approach.
+
+\subsubsection{Hardware and Software Limits}
+
+The practical limit for MASCOT over Veilid on this devnet is approximately
+$N{=}6$ (100\% success rate on the 40-node devnet, degrading on larger
+devnets).  Beyond this, the $O(N^2)$ bandwidth overwhelms the tunnel: at
+$N{=}10$, MASCOT sends ${\thicksim}$637\,MB per party through the tunnel,
+requiring ${\thicksim}$2,500 \texttt{app\_call} round trips.
+
+Shamir scales further because its linear bandwidth means the tunnel carries
+${\thicksim}$2.3\,MB rather than 637\,MB at comparable party counts.  Shamir
+$N{=}15$ achieved 70\% success on the 40-node devnet; $N{=}20$ succeeded on
+60 and 80-node devnets (30--40\%) but not on 40 nodes, likely due to
+insufficient relay diversity at the smaller size.
+
+The bottleneck is not CPU or memory but \emph{Veilid route latency}.
+Table~\ref{tab:warm-cold} illustrates the difference between warm and cold
+devnets.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Condition} & \textbf{MPC time} & \textbf{Route time} &
+  \textbf{Total} & \textbf{ms/round} \\
+\midrule
+40-node devnet (median) & 4.61\,s  & 55.66\,s & 99.97\,s & 17.9 \\
+Direct TCP (no Veilid)  & 0.20\,s  & ---      & 0.20\,s  & 0.78 \\
+\bottomrule
+\end{tabular}
+\caption{MASCOT $N{=}3$: Veilid tunnel vs.\ direct TCP (40-node devnet,
+  10 successful trials).  The tunnel adds 17.1\,ms/round of overhead,
+  dominated by Veilid relay latency.}
+\label{tab:warm-cold}
+\end{table}
+
+The Veilid tunnel adds ${\thicksim}$18\,ms of network round-trip time per
+\texttt{app\_call}, compared to sub-millisecond on localhost TCP.
 
 \subsection{Security Analysis}
 \label{sec:results-security}
 
-% This is the most technically interesting section.
+This section evaluates the system against the security policy from
+Section~\ref{sec:intro-security-policy}, identifying what is protected,
+what leaks, and the severity of each residual channel.
 
 \subsubsection{Threat Model}
-% - Adversary types: honest-but-curious bidder, malicious seller,
-%   network observer, colluding parties
-% - Security goals: bid privacy (non-winners), auction integrity, content confidentiality
+
+Four adversary types are considered:
+\begin{itemize}[noitemsep]
+  \item \textbf{Honest-but-curious bidder}: follows the protocol but attempts
+    to learn other bids from observable data.
+  \item \textbf{Malicious seller}: controls the listing, decryption key, and
+    MPC party~0 output.
+  \item \textbf{Passive network observer}: monitors DHT writes and Veilid
+    message patterns without participating.
+  \item \textbf{Colluding parties}: multiple participants share information to
+    break the MPC threshold.
+\end{itemize}
 
 \subsubsection{Timing Side Channel on Party Assignment}
-% - Party order = bid timestamp order
-% - Network observer monitoring DHT writes can infer party IDs
-% - Impact: correlation of MPC outputs with specific bidders
-% - Severity: Medium
+
+Party order is determined by bid timestamp.  A network observer monitoring DHT
+writes can observe bid timing, inferring party assignments.  If the adversary
+knows the mapping between party IDs and bidders, they can correlate MPC
+outputs with specific participants.
+
+\textbf{Severity}: Medium.  \textbf{Mitigation}: None currently.  Possible
+fixes include random party assignment (requiring a pre-committed randomness
+source) or padding bid submissions to fixed intervals.
 
 \subsubsection{Seller as Single Point of Trust}
-% - Seller = party 0, sees winner + bid, controls key release
-% - Can refuse verification (griefing) or collude with preferred bidder
-% - Compare to Danish sugar beet auction (trusted cooperative auctioneer)
-% - Severity: High (by design)
+
+The seller (party~0) sees the winner identity and winning bid value, controls
+decryption key release, and can refuse verification (griefing) or collude with
+a preferred bidder.  This is the most significant trust assumption in the
+system.
+
+Compared to the Danish sugar-beet auction~\cite{bogetoft2009_mpc_live}, where
+the auctioneer was a trusted cooperative, this system gives the seller
+\emph{less} power (they see only the winning bid, not all bids) but
+\emph{more} ability to grief (they can withhold the key).
+
+\textbf{Severity}: High (by design).  \textbf{Mitigation}: Threshold
+decryption (key shared among MPC parties) would remove this assumption;
+see Section~\ref{sec:conc-future}.
 
 \subsubsection{Winner Identity Linkage}
-% - Challenge-response reveals winner to seller before key transfer
-% - Necessary for protocol correctness
-% - Alternative: 1-out-of-N OT (mentioned in PDD, not implemented)
-% - Severity: Medium (by design)
+
+The challenge-response protocol reveals the winner to the seller before the
+decryption key is sent.  This is necessary for protocol correctness: the
+seller must verify the bid commitment before releasing the key.
+
+\textbf{Severity}: Medium (by design).  The PDD proposed 1-out-of-$N$
+oblivious transfer to avoid this linkage; however, since the seller already
+learns the winner as MPC party~0, OT would not provide additional privacy.
 
 \subsubsection{DHT Metadata Leakage}
-% - Bid record keys publicly announced
-% - Number and timing of bids observable
-% - Mitigated partially by Veilid private routing
-% - Severity: Low
+
+Bid record keys are publicly announced via the listing's announcement
+registry.  The \emph{number} and \emph{timing} of bids are observable by any
+DHT reader, even though bid \emph{values} are hidden behind commitments.
+This is a form of participation metadata leakage.
+
+\textbf{Severity}: Low.  \textbf{Partial mitigation}: Veilid's private
+routing reduces IP-level correlation between a bid record write and a
+specific network identity.
 
 \subsubsection{MPC Route Correlation}
-% - MpcRouteAnnouncement links pubkeys to route blobs
-% - Network-level observer could deanonymise participants
-% - Mitigated by Veilid onion routing (hop count = 2)
-% - Severity: Medium
 
-\subsubsection{Small-N Security Considerations}
-% - N=2 minimum: MASCOT tolerates up to N-1 corrupt parties (dishonest majority)
-% - With N=2: even 1 corrupt party is tolerated (only privacy of corrupt party's input lost)
-% - With N=10: up to 9 corrupt parties tolerated
-% - Severity: Low — MASCOT provides stronger guarantees than Shamir for small auctions
+MPC route blobs are written to bid record subkeys before MPC execution.
+A network observer could correlate route creation timing with auction
+participation, partially deanonymising MPC parties at the network layer.
+
+\textbf{Severity}: Medium.  \textbf{Partial mitigation}: Veilid's onion
+routing limits direct observation (default hop count = 2; benchmarks used
+hop count = 1 for performance).  However, the anonymity set is small on a
+devnet.
+
+\subsubsection{Small-$N$ Security Considerations}
+
+The choice between MASCOT and Shamir has direct security implications at
+small party counts:
+
+\begin{itemize}[noitemsep]
+  \item \textbf{MASCOT} ($N{=}3$): tolerates up to 2 corrupt parties.  Even
+    with 2 colluding bidders, the protocol remains secure,only the
+    colluding parties' own inputs are ``lost'' (they already know their
+    own bids).
+  \item \textbf{Shamir} ($N{=}3$): requires $< 2$ corrupt parties (i.e.,
+    at most 1).  A single colluding bidder plus the seller can
+    reconstruct all shares, completely breaking privacy.
+\end{itemize}
+
+For small auctions (the common case in a marketplace), MASCOT's stronger
+security guarantee is significant, despite its higher computational cost.
 
 \subsubsection{Summary of Side Channels}
-% Include: summary table (side channel, severity, exploitable by, mitigated?)
+
+Table~\ref{tab:side-channels} summarises the identified information leakage
+channels.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{p{3.8cm}ccp{3.5cm}}
+\toprule
+\textbf{Side channel} & \textbf{Severity} & \textbf{Mitigated?} & \textbf{Exploitable by} \\
+\midrule
+Bid timing $\rightarrow$ party ID     & Medium & No        & Network observer \\
+Seller sees winner + bid               & High   & By design & Malicious seller \\
+Winner identity linkage                & Medium & By design & Seller \\
+DHT participation metadata             & Low    & Partially & Any DHT reader \\
+MPC route correlation                  & Medium & Partially & Network observer \\
+Shamir threshold ($N{=}3$)             & High   & Use MASCOT & Colluding parties \\
+\bottomrule
+\end{tabular}
+\caption{Summary of residual information leakage channels.}
+\label{tab:side-channels}
+\end{table}

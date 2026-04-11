@@ -2,12 +2,7 @@
 % Generated from bench-results/ CSVs via scripts/preprocess_benchmarks.py
 % Re-run the script after adding new data, then recompile.
 
-% Colour cycle: TU Delft-inspired, accessible
-\definecolor{plotblue}{HTML}{0077BB}
-\definecolor{plotred}{HTML}{CC3311}
-\definecolor{plotorange}{HTML}{EE7733}
-\definecolor{plotcyan}{HTML}{009988}
-\definecolor{plotgrey}{HTML}{888888}
+% Colours defined in Dissertation.tex preamble (plotblue, plotred, etc.)
 
 \pgfplotsset{
   bench base/.style={
@@ -72,7 +67,7 @@
       bench base,
       xlabel={Number of parties ($N$)},
       ylabel={Total auction time (s)},
-      xtick={3,4,5,6,8,10},
+      xtick={3,4,5,6,8,10,12},
       legend pos=north west,
       ymin=0,
     ]
@@ -100,8 +95,9 @@
   \end{tikzpicture}
   \caption{Total auction time over Veilid using MASCOT
     (median of successful runs, $\pm 1\sigma$).
-    Route exchange and MPC tunnel latency dominate; the 80-node
-    devnet shows degraded performance from larger routing tables.}
+    Route exchange and MPC tunnel latency dominate.  Larger devnets
+    reduce success rates (see Figure~\ref{fig:success-rate}) but
+    successful runs show similar wall-clock times.}
   \label{fig:veilid-mascot-total}
 \end{figure}
 
@@ -143,8 +139,9 @@
   \end{tikzpicture}
   \caption{Total auction time over Veilid using Shamir secret sharing
     (median of successful runs, $\pm 1\sigma$).
-    Shamir supports up to $N{=}20$ parties.  Only successful
-    iterations are included; timeouts are excluded.}
+    The 40-node devnet has insufficient relay capacity to maintain
+    routes for all 20 parties ($N{=}20$: 0/10 success).  Only
+    successful iterations are included; timeouts are excluded.}
   \label{fig:veilid-shamir-total}
 \end{figure}
 
@@ -197,7 +194,7 @@
       ylabel={Time (s)},
       ymode=log,
       log basis y=10,
-      xtick={3,4,5,6,8,10},
+      xtick={3,4,5,6,8,10,15},
       legend pos=north west,
     ]
     % Direct baselines (dashed)
@@ -261,6 +258,96 @@
     MASCOT's pairwise oblivious transfer requires $O(N^2)$ bandwidth
     growth (37\,MB at $N{=}3$ to 653\,MB at $N{=}10$), while Shamir's
     secret-sharing approach grows linearly
-    (0.02\,MB at $N{=}3$ to 1.4\,MB at $N{=}20$).}
+    (0.02\,MB at $N{=}3$ to 1.4\,MB at $N{=}20$).  MASCOT benchmarks
+    beyond $N{=}12$ were not feasible: the host desktop environment
+    ran out of memory under the combined load of devnet nodes and
+    MPC processes.}
   \label{fig:bandwidth}
+\end{figure}
+
+%% ----------------------------------------------------------------
+%% Figure 8: Success rate — MASCOT vs Shamir across devnet sizes
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={Number of parties ($N$)},
+      ylabel={Success rate},
+      ymin=0, ymax=1.1,
+      xtick={3,4,5,6,8,10,12,15,20},
+      ytick={0,0.2,0.4,0.6,0.8,1.0},
+      yticklabel={\pgfmathprintnumber\tick},
+      legend pos=south west,
+    ]
+    \addplot+[color=plotred, mark=square*]
+      table[x=parties, y=rate_40]
+      {Figures/data/success_mascot.dat};
+    \addlegendentry{MASCOT 40-node}
+
+    \addplot+[color=plotblue, mark=triangle*]
+      table[x=parties, y=rate_40]
+      {Figures/data/success_shamir.dat};
+    \addlegendentry{Shamir 40-node}
+
+    \addplot+[color=plotred, mark=square*, dashed]
+      table[x=parties, y=rate_80,
+            restrict expr to domain={\thisrow{rate_80}}{0:1}]
+      {Figures/data/success_mascot.dat};
+    \addlegendentry{MASCOT 80-node}
+
+    \addplot+[color=plotblue, mark=triangle*, dashed]
+      table[x=parties, y=rate_80,
+            restrict expr to domain={\thisrow{rate_80}}{0:1}]
+      {Figures/data/success_shamir.dat};
+    \addlegendentry{Shamir 80-node}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Success rate by party count and devnet size.
+    MASCOT maintained 100\% success on the 40-node devnet up to
+    $N{=}12$ but degraded on larger devnets.
+    Shamir scaled further in party count but dropped to 0\%
+    at $N{=}20$ on 40 nodes.}
+  \label{fig:success-rate}
+\end{figure}
+
+%% ----------------------------------------------------------------
+%% Figure 9: MPC self-time vs wall-time (tunnel overhead scatter)
+%% ----------------------------------------------------------------
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      bench base,
+      xlabel={MPC self-reported time (s)},
+      ylabel={MPC wall-clock time over Veilid (s)},
+      xmin=0, ymin=0,
+      legend pos=north west,
+    ]
+    % y=x reference line (no overhead)
+    \addplot+[color=plotgrey, no marks, dashed, thin,
+      domain=0:130] {x};
+    \addlegendentry{$y = x$ (no overhead)}
+
+    \addplot+[color=plotred, mark=square*, only marks, mark size=1.5pt,
+      restrict expr to domain={\thisrow{mpc_median}}{0.01:999}]
+      table[x=mpc_median, y=mpc_median,
+            y expr=\thisrow{total_median}-\thisrow{route_median}]
+      {Figures/data/veilid_mascot_40.dat};
+    \addlegendentry{MASCOT}
+
+    \addplot+[color=plotblue, mark=triangle*, only marks, mark size=1.5pt,
+      restrict expr to domain={\thisrow{mpc_median}}{0.01:999}]
+      table[x=mpc_median, y=mpc_median,
+            y expr=\thisrow{total_median}-\thisrow{route_median}]
+      {Figures/data/veilid_shamir_40.dat};
+    \addlegendentry{Shamir}
+    \end{axis}
+  \end{tikzpicture}
+  \caption{MPC computation time vs.\ total non-route time
+    (40-node devnet).  Points above the $y{=}x$ line indicate
+    overhead from Veilid tunnel latency.  MASCOT incurs larger
+    absolute overhead due to its higher round count.}
+  \label{fig:mpc-overhead-scatter}
 \end{figure}
