@@ -3,26 +3,118 @@
 \section{Supervisory Meeting Minutes}
 \label{app:minutes}
 
-% TODO: Add meeting notes with Martin Nyx Brain.
-% For each meeting, record: date, attendees, items discussed, actions agreed.
 
 \subsection*{Meeting 1 — [29/01/2026]}
 \begin{description}
-  \item[Attendees:] Anker Rasmussen, Martin Nyx Brain
-  \item[Discussion:] [Discussion about decryption, how to handle decryption \& communication over nodes, AppBroadcast vs AppMessage (veilid implementation)]
-  \item[Actions:] [Discussion about implementation w.r.t. MPC program.]
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] How to handle decryption and key delivery between
+    auction participants.  Communication patterns over Veilid nodes:
+    \texttt{app\_broadcast} vs.\ \texttt{app\_message} for different message
+    types.  Initial discussion of what the MPC program needs to compute
+    and how results are communicated back to participants.
+  \item[Actions:] Investigate Veilid messaging primitives and determine
+    which is appropriate for each communication pattern.  Sketch the MPC
+    program requirements.
 \end{description}
 
-% Copy this template for each subsequent meeting.
 \subsection*{Meeting 2 — [05/02/2026]}
 \begin{description}
-  \item[Attendees:] Anker Rasmussen, Martin Nyx Brain
-  \item[Discussion:] [Leaky secret transfer, metadata leakage.]
-  \item[Actions:] [Do more research, figure out metadata leakage, when to share secrets with parties, obscure identities of participants.]
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] Secret transfer between parties is leaky: transferring
+    the decryption key reveals information about who won.  Broader metadata
+    leakage concerns: when should secrets be shared with which parties, and
+    how to obscure participant identities throughout the protocol.
+  \item[Actions:] Research metadata leakage vectors.  Design the secret
+    transfer step to minimise information revealed to non-winning parties.
 \end{description}
 \subsection*{Meeting 3 — [12/02/2026]}
 \begin{description}
-  \item[Attendees:] Anker Rasmussen, Martin Nyx Brain
-  \item[Discussion:] [Summary]
-  \item[Actions:] [Agreed actions]
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] Security model for auction results: only the winner and
+    seller should receive sensitive information (decryption key and bid values).
+    All other metadata exposure should be minimised.
+  \item[Actions:] Design the post-MPC verification flow around this principle:
+    seller learns winner identity and winning bid; all other parties learn only
+    whether they won or lost.
+\end{description}
+\subsection*{Meeting 4 — [19/02/2026]}
+\begin{description}
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] Arrived with semi-honest (Shamir) as the default
+    protocol choice assuming honest majority.  Discussed whether to change
+    the MPC auction algorithm, and what exactly needs to be computed inside
+    the MPC program.  Key question: how to handle bid commitment and how to
+    prove the winner actually bid what they claim.
+  \item[Actions:] Define the commitment scheme (hash-based) and design a
+    post-MPC verification challenge so the seller can confirm the winning
+    bid matches the commitment.
+\end{description}
+\subsection*{Meeting 5 — [26/02/2026]}
+\begin{description}
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] DHT registry permissions: if all parties hold a modify
+    key, any party can delete other listings.  Proposed a registry-of-registries
+    pattern, but open question on how to bootstrap discovery (rebroadcast?).
+    Route reuse across auctions: if a participant joins two auctions on the
+    same route, this could enable deanonymisation.  MASCOT vs.\ Shamir
+    selection: MP-SPDZ is somewhat opaque regarding internal behaviour.
+    Party count and devnet sizing.  Initial hypothesis that MASCOT was
+    network-bound on the Veilid transport layer (later found to be incorrect:
+    the bottleneck was running three Tokio runtimes in a single process).
+  \item[Actions:] Investigate per-listing DHT records to avoid shared-registry
+    permission conflicts.  Ensure fresh routes per auction.  Separate market
+    nodes into individual OS processes.
+\end{description}
+\subsection*{Meeting 6 — [12/03/2026]}
+\begin{description}
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] Martin asked to formalise the security model: protecting
+    what, from whom, how, and under what assumptions.  Party assignment:
+    how to deterministically assign party IDs (0, 1, 2, \ldots) given that
+    party~0 (seller) is privileged.  Options discussed: sort by bid
+    timestamp, sort by node ID.  Must be deterministic so all parties
+    independently agree on the same assignment.
+  \item[Actions:] Write up the threat model.  Implement party assignment by
+    bid timestamp (seller's auto-bid is earliest, guaranteeing party~0).
+\end{description}
+\subsection*{Meeting 7 — [19/03/2026]}
+\begin{description}
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] Switched default protocol from Shamir to MASCOT, and
+    from unsafe to private routing.  Veilid v0.6.0 reportedly bringing
+    significant routing changes.  E2E test flakiness.  Compare-and-swap is
+    not a Veilid-native primitive and can only be approximated at the
+    application layer; Martin suggested using a CRDT instead.  SSL is only
+    required with Shamir, not MASCOT (which uses OT-based key setup);
+    system is fully reliant on Veilid's privacy layer, so if Veilid is
+    compromised the MPC is also compromised.  Concurrent writes to the same
+    DHT subkey caused race conditions (no concurrent primitives in Veilid).
+    Veilid does not support a multi-owner model for DHT records.  The 32\,KB
+    DHT record limit means a single record can realistically support at most
+    256 bidders.
+  \item[Actions:] Implement CRDT-based (G-Set) bid registry.  Accept Veilid
+    as the sole trust boundary for transport encryption.  Design around the
+    single-owner DHT constraint.
+\end{description}
+\subsection*{Meeting 8 — [26/03/2026]}
+\begin{description}
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] CRDT implementation: for true CRDTs each node needs to
+    maintain its own copy, with state stored as subkeys on its own DHT
+    record and a merge layer baked into the application layer.  Current
+    approach was hacky with the seller centralising state.  Martin's
+    feedback: local copies should converge via merge, not via a central
+    authority.  Veilid's DHT still does not support multi-writer records
+    cleanly.
+  \item[Actions:] Refactor bid registry to use G-Set merge semantics with
+    per-node owned records.  Remove seller as central state authority.
+\end{description}
+\subsection*{Meeting 9 — [02/04/2026]}
+\begin{description}
+  \item[Attendees:] Anker Rasmussen, Martin Brain
+  \item[Discussion:] Dissertation writing strategy: start writing now,
+    begin with the conclusion and work backwards.  Implementation priority:
+    finish the CRDT refactor first, then write up results.
+  \item[Actions:] Implement G-Set CRDT merge.  Begin drafting conclusion
+    and results chapters.
 \end{description}
