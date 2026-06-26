@@ -24,13 +24,14 @@ party receives the polynomial evaluated at a distinct point.  Any $t{+}1$
 parties can reconstruct $s$ via interpolation, but $t$ or fewer learn nothing
 about it.
 
-When used for MPC, the threshold is set to $t < N/2$ (honest majority).
-Addition of shared values is free (each party adds its shares locally),
-while multiplication requires one round of communication per gate, giving
-$O(N)$ messages per multiplication.  This makes Shamir efficient at large
-party counts.  However, if the honest-majority assumption is violated
-($t \geq N/2$ parties are corrupt), the corrupt parties can reconstruct
-every shared secret, and all privacy guarantees are lost.
+When used as an MPC primitive~\cite{evans2018_pragmatic_mpc}, the threshold
+is set to $t < N/2$ (honest majority).  Addition of shared values is free
+(each party adds its shares locally), while multiplication requires one
+round of communication per gate, giving $O(N)$ messages per multiplication.
+This makes Shamir efficient at large party counts.  However, if the
+honest-majority assumption is violated ($t \geq N/2$ parties are corrupt),
+the corrupt parties can reconstruct every shared secret, and all privacy
+guarantees are lost.
 
 \subsubsection{MASCOT (Dishonest Majority)}
 \label{sec:ctx-mascot}

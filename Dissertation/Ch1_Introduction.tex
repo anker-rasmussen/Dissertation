@@ -142,8 +142,9 @@ Key \emph{trust and design assumptions}:
   \item The MPC security guarantee depends on the protocol backend:
     MASCOT~\cite{keller2016_mascot} tolerates up to $N{-}1$ corrupt parties
     (dishonest majority)- and this is justified by the seller getting extra information in comparison to the bidding participants.
-    Shamir~\cite{shamir1979_secret_sharing} requires
-    an honest majority of at least $\lfloor N/2 \rfloor + 1$ honest parties.
+    Shamir-based MPC~\cite{shamir1979_secret_sharing, evans2018_pragmatic_mpc}
+    requires an honest majority of at least $\lfloor N/2 \rfloor + 1$ honest
+    parties.
   \item The system operates on a private devnet, not the public Veilid
     network.  All nodes are controlled by the tester; no real-world
     adversaries or network conditions are present or have been tested.

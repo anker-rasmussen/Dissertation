@@ -13,20 +13,32 @@ This appendix documents all third-party software reused in this project, as requ
 \toprule
 \textbf{Component} & \textbf{Version} & \textbf{Licence} & \textbf{Usage} \\
 \midrule
-veilid-core    & (local build)  & MPL-2.0        & P2P networking, DHT, private routing \\
-MP-SPDZ        & (local build)  & BSD-3-Clause   & MASCOT MPC protocol execution \\
+veilid-core     & (local build)  & MPL-2.0        & P2P networking, DHT, private routing \\
+MP-SPDZ         & (local build)  & BSD-3-Clause   & MASCOT MPC protocol execution \\
 Dioxus          & 0.7.2          & MIT/Apache-2.0 & Desktop UI framework \\
 tokio           & 1.x            & MIT            & Async runtime \\
+tokio-util      & 0.7            & MIT            & Cancellation tokens \\
 serde           & 1.0            & MIT/Apache-2.0 & Serialization framework \\
-ciborium        & 0.2            & MIT/Apache-2.0 & CBOR serialization for DHT records \\
+serde\_json     & 1.0            & MIT/Apache-2.0 & JSON serialization \\
+ciborium        & 0.2            & Apache-2.0     & CBOR serialization for DHT records \\
 bincode         & 1.3            & MIT            & Binary serialization for messages \\
 sha2            & 0.10           & MIT/Apache-2.0 & SHA-256 hashing (bid commitments) \\
+blake3          & 1.x            & CC0/Apache-2.0 & BLAKE3 hashing (DHT key derivation) \\
 aes-gcm         & 0.10           & MIT/Apache-2.0 & AES-256-GCM content encryption \\
+ed25519-dalek   & 2.x            & BSD-3-Clause   & Shared keypair derivation \\
+subtle          & 2.x            & BSD-3-Clause   & Constant-time comparison \\
 rand            & 0.8            & MIT/Apache-2.0 & Random number generation \\
 anyhow          & 1.0            & MIT/Apache-2.0 & Error handling \\
 thiserror       & 1.0            & MIT/Apache-2.0 & Error type derivation \\
 tracing         & 0.1            & MIT            & Structured logging \\
+tracing-subscriber & 0.3         & MIT            & Log output formatting \\
 async-trait     & 0.1            & MIT/Apache-2.0 & Async trait support \\
+futures         & 0.3            & MIT/Apache-2.0 & Async combinators \\
+parking\_lot    & 0.12           & MIT/Apache-2.0 & Synchronization primitives \\
+libc            & 0.2            & MIT/Apache-2.0 & System call bindings \\
+hex             & 0.4            & MIT/Apache-2.0 & Hex encoding/decoding \\
+data-encoding   & 2.9            & MIT            & Base encoding utilities \\
+dirs            & 6.0            & MIT/Apache-2.0 & Platform directory paths \\
 \bottomrule
 \end{tabular}
 \caption{Third-party libraries used in the Lattice crate.}
