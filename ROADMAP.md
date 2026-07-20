@@ -125,7 +125,7 @@ A fresh isolated network cannot form at 0.5.7. **Four interlocking chicken-and-e
    → every node stuck `inbound=NeedsRelays` → publish never happens even after bootstrap works
    (verified: bootstrap succeeded in ~5ms via patches 1+2, but mesh never grew). → **Fork patch 3**
    (`1c3655b4`): scope requirement set to the node's `address_types` × `outbound_protocols`; plus
-   devnet config sets `ws.connect=false` (playground `f68bec29` + market node.rs `7929a01`) so the
+   devnet config sets `ws.connect=false` (playground `f68bec29` + market node.rs `8796968`) so the
    scope equals static coverage.
 4. **Translated addresses demand relays even for Direct-class dial info**: ipspoof's 1.2.3.x
    addresses aren't interface addresses, so 0.5.7 classifies them as NAT-translated and demands a
@@ -205,6 +205,6 @@ _Measurements and observations accumulate here per route until 1–2 routes are 
 - **2026-07-19/20** — Phases 1–4 landed. Merged v0.5.7 (`19d2c0f7`), market compiles at 0.5.7
   (`00bb773`), clippy-1.95 baseline repair (`cb88483`). Root-caused + fixed the **genesis
   deadlock** (Phase 2b): four fork patches `b979a4f9`/`fac1a4d8`/`1c3655b4`/`b6c3fb2f` +
-  playground `f68bec29` + market `7929a01`. Devnet: 20/20 reachable in 5.1s. E2E **3/3 PASS**
+  playground `f68bec29` + market `8796968`. Devnet: 20/20 reachable in 5.1s. E2E **3/3 PASS**
   (573.3s suite): sequential −18%, concurrent flat, happy path +22% (profiling target for 5g).
   Fork pushed (`f68bec29` verified on remote).
