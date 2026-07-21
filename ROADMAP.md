@@ -156,6 +156,12 @@ A fresh isolated network cannot form at 0.5.7. **Four interlocking chicken-and-e
   0.5.4–0.5.7 route work; happy path regressed — single-auction cold-route cost apparently
   moved, not removed. Candidate causes to profile in Phase 5g: rpc timeout back at 10s default
   (was 5s tuned — the Phase 3 watch-item), relay-compiler startup work, route optimizer warmup.
+  - **5g correction (2026-07-20)**: rpc-timeout suspect **eliminated**. 0.5.7 internal defaults
+    (`VeilidConfigInternalRPC.timeout_ms = 5000`, DHT get/set/resolve = 10000) are byte-identical
+    to our old tuned values (5s rpc, 2× for DHT). Effective timeouts unchanged across the
+    migration. Also: isolated happy-path re-run = **110.2s** (better than the 116.2s 0.5.3
+    baseline) — the in-suite 142.3s appears to be a suite-ordering effect (runs 3rd), not
+    intrinsic 0.5.7 cost. See Phase 5g findings.
 - [x] No ConnectionManager deadlock symptoms under connect storms
 - [x] Gate: 3/3 green → Phase 5 unlocked
 
@@ -177,6 +183,111 @@ A fresh isolated network cannot form at 0.5.7. **Four interlocking chicken-and-e
   (devnet startup, announcement sleeps, MPC polling cadence, barrier waits, MASCOT round
   latency) and tune measured-worst-first. Caution from Feb 2026 optimization round:
   aggressive sleep reductions previously caused 849 route errors — change one knob per run.
+
+  **5g findings (2026-07-20, isolated happy-path profiling run, 110.2s total, PASS):**
+
+  | Segment | Wall time | Notes |
+  |---|---|---|
+  | node spawn → ready → routes ready | ~14s | bootstrap 27–31ms/node |
+  | create listing + place bids | ~4s | |
+  | auction duration | 15s | fixed by test design |
+  | **route_exchange (post-auction barrier)** | **~30s** | BENCH 26.8–29.8s across parties |
+  | MASCOT MPC | **4.65s** | 188 rounds, 37MB/party — tunnel healthy |
+  | verification logic itself | <150ms | challenge→reveal→verify→key |
+  | **app_call reply retry storm** | **~23s** | see anomaly below |
+  | teardown | ~16s | |
+
+  - **The dominant pathology (~53s of 110s recoverable): app_call replies are lost while
+    forward delivery works.** Every post-MPC message (WinnerDecryptionRequest, WinnerBidReveal,
+    DecryptionHashTransfer) is *received in ~1ms* (receiver handler logs receipt) but the
+    sender's `app_call` times out (5s), retries every ~6s, and remote routes churn dead
+    (`dead_remote_routes` every ~5s). All three send loops hit their 20s overall deadlines at
+    21:29:00 — and at that same moment the reply path heals for everyone simultaneously
+    ("sent successfully via MPC route"); the reveal-triggered resend fallback delivers the key.
+    Same signature as the `make demo` first-transfer timeout. The route_exchange 30s likely
+    shares the mechanism (route-blob broadcasts also timed out: "Broadcast failed for all
+    2 route blobs"; announcements only landed ~26s after auction end).
+  - This is probably NOT a 0.5.7 regression — the Feb 2026 hardening (reveal-triggered resend,
+    route death recovery) was built against exactly this cold-route pathology at 0.5.2/0.5.3.
+    0.5.7's route work didn't fix it for our topology. Fixing the root cause is the single
+    biggest E2E speedup available (~half the happy-path wall time).
+  - **Finding 1 (2026-07-21, real defect but NOT the reply-loss cause): IPv6 leak through
+    ipspoof + shared address-filter bucket.** Debug rerun showed `WARN net: Address filter rate exceeded:
+    2a01:...:ffff` (host's real global IPv6 /56) on all three market nodes, starting *during*
+    route_exchange. `ss` polling during a run confirmed: market-headless processes hold
+    ESTABLISHED TCP connections to the host's real global IPv6 on ports 5150–5169 (the devnet
+    nodes). Mechanism: playground binds listen_address `":port"` (unspecified → dual-stack),
+    so devnet nodes enumerate real interfaces and advertise the host's global IPv6 as dial
+    info; peers connect via it, **bypassing ipspoof** (only 1.2.3.x is rewritten); every node
+    shares the host's single IPv6 /56 → one shared `max_connection_frequency_per_min=128`
+    bucket (`address_filter.rs`) → connection storms trip it → all new v6 connections rejected
+    → replies/broadcasts stall until the 60s window drains (the "simultaneous heal" at ~20s+).
+    Also explains the phantom relay: address_types includes IPV6 with no IPv6 dial info →
+    patch-3-scoped relay requirement demands IPV6 coverage → bootstrap selected as relay.
+    Likely the same mechanism behind the pre-0.5.7 cold-route pathology (Feb 2026 hardening
+    era) — the address filter predates 0.5.7.
+  - **Fix (one knob)**: 0.5.7 first-class `VeilidConfigNetwork.address_types = ["IPV4"]`
+    (idiomatic — public config, not footgun): playground main.rs set_config + market node.rs
+    devnet block. Verified wired end-to-end in veilid-core (`configured_address_type_set` →
+    `make_address_config` → family_global/binds/interface dial info).
+  - IPv6 fix landed (fork `0af0ac69`, app `7fca3a1`) and verified (0 rate warnings, no relay,
+    0 v6 devnet connections via `ss` polling) — but the ~20s stall persisted unchanged (110.2s,
+    key after 74.2s), so it was a co-occurring defect, not the reply-loss cause.
+  - **Finding 2 (2026-07-21): THE root cause — mutual dispatcher head-of-line blocking
+    (app-side bug, ours).** Facility-filtered veilid-core debug run (`RUST_LOG=info,rpc=debug,
+    net=debug,rtab=debug` — veilid_log targets are facilities `rpc`/`net`/`rtab`, not crate
+    names) traced one challenge op end-to-end: sent 09:01.234 → received by winner 09:01.235
+    (1ms) → winner's `app_call_reply` only at 09:24 → `RPCError: Ignore(Unmatched operation
+    id)` (veilid's answer window long expired). `dispatch_veilid_update` awaited
+    `process_app_call` to completion before replying, and handlers perform *nested* app_calls
+    with 20s retry budgets (challenge handler sends reveal; reveal handler sends key transfer).
+    Each side's answer can only be produced by the other side's dispatcher — which is blocked
+    in its own nested send. Both nodes stall for exactly the retry budget, then all queued
+    updates burst-deliver ("simultaneous heal", duplicate storms, unmatched-op-id replies).
+    The Feb 2026 reveal-triggered-resend hardening was unknowingly papering over this: it fires
+    precisely when the budgets expire. Explains `make demo`'s "first key transfer times out,
+    resend delivers" too.
+  - Approaches considered: (a) reply-first-then-send — rewrite handlers to compute the semantic
+    response, reply, then do nested sends; minimal per-handler change but every future blocking
+    handler silently reintroduces the bug, and it required changing 3 handler contracts.
+    (b) spawn AppCall processing per update — dispatcher never blocks; requires out-of-order +
+    duplicate tolerance, which is already the handler contract (MPC tunnel reorders by explicit
+    per-stream seq in `deliver_ordered`; auction handlers observed idempotent under the storm's
+    duplicate floods; CRDT G-Set is merge-safe by design). (c) outbound-send actor/queue —
+    handlers enqueue sends instead of awaiting; most plumbing, orchestrator coupling.
+    **Chose (b)**: one contained change in `dispatch_veilid_update` (AppCall arm spawns;
+    AppMessage/RouteChange stay inline and serialized). Landed as app `a2a8221`.
+  - **Fix verified (isolated happy path)**: 110.2s → **83.2s** (−28% vs the 0.5.3 baseline
+    116.2s); winner-key wait 74.2s → **42.7s**; retry storm gone (0 send-failed warnings);
+    route_exchange 26.8–29.8s → **17.6–20.7s**; auction_complete 35–58s → **22.7–26.8s**.
+    One benign late-reply Unmatched-op-id remains pre-auction (watch item).
+    Remaining happy-path budget: 15s fixed auction duration + ~20s route_exchange + ~5s MPC —
+    route_exchange is now the top 5g target.
+  - **Full suite with both fixes (2026-07-21): 3/3 PASS, 300.4s — the suite halved.**
+
+    | Test | 0.5.3 baseline | 0.5.7 pre-fix | 0.5.7 fixed | Δ vs baseline |
+    |---|---|---|---|---|
+    | sequential | 263.4s | 215.5s | **119.8s** | **−54.5%** |
+    | concurrent | 207.8s | 210.3s | **95.3s** | **−54.1%** |
+    | happy path | 116.2s | 142.3s | **81.2s** | **−30.1%** |
+    | suite total | 591.6s | 573.3s | **300.4s** | **−49.2%** |
+
+    Sequential/concurrent gained most: every auction in them paid the 20s stall.
+    The in-suite vs isolated happy-path discrepancy is gone (81.2s vs 83.2s) — it was the
+    dispatcher stall interacting with suite state, not test ordering.
+  - **Finding 3 (2026-07-21, exposed by the timing change): verification refetched commitments
+    from the live DHT.** First post-fix `make demo`: winner (bid 95) challenged, accepted,
+    revealed — seller's `verify_winner_reveal` FAILED in 9ms and withheld the key. The check
+    refetched BID_ANNOUNCEMENTS + the winner's BidRecord from DHT (`force_refresh=true`)
+    at verification time; with the dispatcher fix this now runs ~10ms after MPC end (mid
+    connection churn) instead of ~20s later on a quiet network — any fetch miss = spurious
+    FAIL + key withheld. Structurally wrong regardless of flakiness: the reveal must open the
+    commitment the MPC actually *consumed* (BidIndex snapshot), not whatever the DHT currently
+    says — refetching was also a TOCTOU hole (bidder could rewrite their record post-MPC).
+    **Fix**: `VerificationState.winner_commitment` snapshot captured from the MPC-input
+    BidIndex in `handle_seller_mpc_result`; `verify_winner_reveal` is now DHT-free and logs
+    which sub-check failed. Landed as app `85db016`. Demo rerun: challenge → reveal → verify →
+    key delivered in **25ms** (was 20+s via the timeout/resend path). E2E suite re-run below.
 
 ### Phase 6 — Publication track (gated on Phases 1–4 green; user picks 1–2 of A–E)
 - [ ] Accumulate material per route in [Publication notes](#publication-notes)
@@ -208,3 +319,17 @@ _Measurements and observations accumulate here per route until 1–2 routes are 
   playground `f68bec29` + market `8796968`. Devnet: 20/20 reachable in 5.1s. E2E **3/3 PASS**
   (573.3s suite): sequential −18%, concurrent flat, happy path +22% (profiling target for 5g).
   Fork pushed (`f68bec29` verified on remote).
+- **2026-07-20 (later)** — Phase 5g profiling started. Isolated happy path = 110.2s (beats
+  0.5.3 baseline); rpc-timeout suspect eliminated (0.5.7 internal defaults == old tuned values);
+  root pathology identified: app_call reply loss with instant forward delivery (~53s recoverable
+  per run). Details under Phase 5g.
+- **2026-07-21** — Phase 5g root causes found & fixed. Finding 1: devnet IPv6 leak bypassing
+  ipspoof into a shared address-filter rate bucket → `address_types=["IPV4"]` (fork `0af0ac69`,
+  app `7fca3a1`). Finding 2 (THE cause): mutual dispatcher head-of-line blocking — inline
+  AppCall handling serialized peers against each other for the full 20s retry budget → spawn
+  AppCall processing (app `a2a8221`). E2E suite **halved**: 573.3s → 300.4s, 3/3 PASS
+  (seq 119.8s / conc 95.3s / happy 81.2s). Feb 2026 resend-hardening was masking this bug.
+  Finding 3 (exposed by 2): winner verification refetched commitments from live DHT → spurious
+  FAIL + key withheld in demo; now verifies against the MPC-input BidIndex snapshot
+  (app `85db016`). Re-verified: demo key delivery in 25ms end-to-end; E2E suite 3/3 (332.0s).
+  All pushed: fork `0af0ac69`, app `85db016`, refs verified.
