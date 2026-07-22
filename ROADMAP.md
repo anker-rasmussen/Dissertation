@@ -166,23 +166,81 @@ A fresh isolated network cannot form at 0.5.7. **Four interlocking chicken-and-e
 - [x] Gate: 3/3 green → Phase 5 unlocked
 
 ### Phase 5 — Incremental strengthening (each sub-phase = own commit, idiomatic-Veilid pass)
-- [ ] **(a)** `VeilidConfigDHT.max_concurrent_operations` — set/tune (node.rs:173,223), measure
-- [ ] **(b)** `flush_dht_record` after critical writes (bid_storage, bid_announcement, registry);
-  verify E2E timing doesn't regress
-- [ ] **(c)** **HPKE design spike (investigate only — no production code without sign-off)**:
-  design note here; prototype key-derivation round-trip (VLD0 signing identity →
-  `encapsulation_key_from_signing_key`/`decapsulation_key_from_signing_secret` → seal/open)
-  in a throwaway test
-- [ ] **(d)** Richer `VeilidUpdate::Attachment` — network-size estimates in UI status/logs
-- [ ] **(e)** Route-workaround simplification, evidence-based per candidate (remove on branch,
-  full E2E 3/3, equal-or-better timing): post-barrier refresh · reactive refresh ·
-  fresh-devnet-per-test · fork patch `f2d3b461`
-- [ ] **(f)** Optional: DHT transactions for `read_modify_write_subkey` — only if (a)–(e) reveal
-  a concurrency gap (NOTES.md:322 wished for native CAS; transactions may answer it)
-- [ ] **(g)** E2E speedup pass (user-requested): profile where wall time goes at 0.5.7
-  (devnet startup, announcement sleeps, MPC polling cadence, barrier waits, MASCOT round
-  latency) and tune measured-worst-first. Caution from Feb 2026 optimization round:
-  aggressive sleep reductions previously caused 849 route errors — change one knob per run.
+- [x] **(a)** `max_concurrent_operations` — **evaluated, deliberately not set** (2026-07-22).
+  Phase 3 removed the whole `VeilidConfigDHT` block; 0.5.7 default is 16. Code audit: zero
+  concurrent fan-out in any market DHT path (no join/FuturesUnordered/buffer_unordered in
+  dht.rs/registry.rs/bid_ops.rs/mpc_routes.rs — all sequential awaits, ≤ ~6 in-flight ops
+  worst-case across an auction). The limit cannot be reached; re-adding hand-tuned config
+  we just deleted would be anti-idiomatic. Revisit only if a fan-out path is introduced.
+- [x] **(b)** `flush_dht_record` after critical writes — adopted at the two shared write
+  choke points (`set_value_at_subkey`, `read_modify_write_subkey` in dht.rs), covering bid
+  records, listings, registry RMW, and route blobs. Closes the announce-then-fetch race
+  against 0.5.7 offline subkey writes; zero-cost when nothing pending, bounded 10s + WARN
+  otherwise (non-fatal: locally durable + background retry + reader retry loops).
+  Measured: happy path 72.3s (best yet), zero flush warnings. App `001a84f`.
+- [x] **(c)** **HPKE design spike — done, investigate-only (no production code)**.
+  Proof: `market/tests/hpke_spike.rs` (`cargo test --test hpke_spike -- --ignored`, passes
+  in 40ms) — seller derives an x25519 KEM encapsulation key from the winner's *published*
+  ed25519 `BidRecord.signing_pubkey` via `encapsulation_key_from_signing_key`, seals a
+  32-byte AES-256-GCM content key with `hpke_seal` (AAD = listing key); winner opens with
+  `decapsulation_key_from_signing_secret` from its existing signing secret. Negative cases
+  verified: non-recipient cannot open; mismatched AAD cannot open.
+  **Design if adopted** (needs sign-off): keep AES-256-GCM as content cipher (content.rs
+  unchanged); replace the plaintext-over-private-route `DecryptionHashTransfer` payload with
+  the HPKE-sealed blob, AAD = listing record key. Benefits: key transfer no longer relies
+  solely on route confidentiality (defense in depth), sealed blob is safe to persist/resend
+  via DHT (an offline-winner delivery path the current design can't do), sealer-cannot-open
+  property removes the seller's ability to later prove which key it delivered. Costs:
+  +~100 bytes payload, HPKE dependency on the app protocol, and the reveal-triggered resend
+  path must carry the sealed blob. No further work without user sign-off.
+- [x] **(d)** Richer `VeilidUpdate::Attachment` — reliable peer count, estimated network
+  size, and median latency now in NodeState, the attachment log line, and the Network
+  Status card. App `152f887`.
+- [x] **(e)** Route-workaround simplification — per-candidate verdicts (2026-07-22):
+  - **Post-barrier route refresh: REMOVED** (app `7be35f8`). It dated from 30–120s barriers
+    killing Phase 1 routes; the barrier now completes in seconds. Phase 3 is re-import +
+    reassemble only (−90 LoC, removes the fresh-route churn the refresh itself caused).
+    Evidence: suite 3/3 at **284.9s** (best yet; 300.4s with refresh) — seq 109.2 / conc 81.2
+    / happy 90.3.
+  - **Fork patch `f2d3b461`: SUPERSEDED UPSTREAM** — nothing to remove. The 0.5.4
+    optimization pass rewrote the hop cache to refcount duplicate hop sets ("Same public
+    key is never permitted; duplicate hop sets are") and the release path logs instead of
+    panicking. Our patch content is entirely absent from the merged tree; every green E2E
+    since the merge validates it. Track A: not an MR candidate (upstream fixed independently);
+    keep as evidence the Feb 2026 diagnosis was correct.
+  - **Reactive refresh (`handle_dead_remote_routes` + own-route death detection): KEPT
+    deliberately.** It's a correctness mechanism reacting to RouteChange events (which still
+    fire in every run), not a timing workaround. Devnet E2E cannot exercise production route
+    churn, so the removal protocol structurally cannot produce valid evidence here.
+  - **Fresh-devnet-per-test: KEPT — removal definitively fails.** Trial (manual 20-node
+    devnet + `E2E_FAST_MODE=1` suite): concurrent auctions **FAILED** (720s timeout), happy
+    path passed but at 426s (~5×), suite 1244s. The workaround's rationale (stale market-node
+    entries poisoning devnet routing tables across tests) still holds at 0.5.7. The ~10s/test
+    restart is cheap insurance.
+- [x] **(f)** DHT transactions — **deferred, no gap found** (2026-07-22). The condition
+  ("only if (a)–(e) reveal a concurrency gap") was not met: every record has a single
+  writer, the one same-record RMW race (BID_ANNOUNCEMENTS) is already serialized by
+  `bid_registry_lock`, and the 5a audit found no concurrent DHT fan-out anywhere.
+  Answer to NOTES.md's CAS wish: 0.5.7 transactions could replace the app-level lock with
+  native begin/command semantics, but they'd add API surface to solve a race we don't have —
+  the lock is sufficient for a single-process writer. Reconsider only if multiple
+  processes ever write one record (e.g. multi-seller shared registries).
+- [x] **(g)** E2E speedup pass (user-requested) — **done; suite halved+**. Final numbers
+  (2026-07-22, after Findings 1–3 + 5b flush + 5e post-barrier removal):
+
+  | Measurement | 0.5.3 baseline | Final | Δ |
+  |---|---|---|---|
+  | happy path (instrumented) | 116.2s | **67.2s** | −42% |
+  | winner-key wait | ~74s (pre-fix) | **35.3s** | −52% |
+  | route_exchange phase | 26.8–29.8s | **13.3–19.4s** | ~−45% |
+  | auction_complete | 35–58s | **18.0–24.3s** | ~−50% |
+  | full suite | 591.6s | **284.9s** | −52% |
+
+  Residual opportunity (diminishing returns, one-knob-per-run if pursued): route_exchange's
+  remaining ~14s is route collection polling + MpcReady barrier cadence
+  (`MPC_SYN_ACK_ROUND_SECS=5` rounds, barrier poll 1s) plus party auction-end skew;
+  the 15s fixed auction duration and ~16s teardown are test-design constants, not tunables.
+  Feb 2026 caution stands: sleep reductions previously caused 849 route errors.
 
   **5g findings (2026-07-20, isolated happy-path profiling run, 110.2s total, PASS):**
 
@@ -305,6 +363,25 @@ A fresh isolated network cannot form at 0.5.7. **Four interlocking chicken-and-e
 
 _Measurements and observations accumulate here per route until 1–2 routes are chosen._
 
+- **A (upstream patches)**: the genesis-deadlock 4-patch series (`b979a4f9`/`fac1a4d8`/
+  `1c3655b4`/`b6c3fb2f`) = "support fully-static/isolated network bootstrap", playground as
+  repro harness. Bonus docs patch: upstream `sample.config` still lists removed `limit_*`.
+  `f2d3b461` resolved: superseded by upstream's 0.5.4 hop-cache refcount redesign (not an MR
+  candidate; validates the Feb 2026 diagnosis). `d68c16b8` folded into `fac1a4d8` (patch 2).
+- **B (community tooling)**: playground + ipspoof now 0.5.7-native; IPv4-only lesson
+  (dual-stack listeners leak the host's real IPv6 past LD_PRELOAD spoofing) is a good
+  "gotchas" section for a release write-up.
+- **C (general public)**: the dispatcher HOL-blocking story arcs well — "we blamed the
+  anonymity network for 5 months; it was 12 lines of ours".
+- **D (MPC community)**: MASCOT-over-private-routes at 0.5.7: ~188 rounds, 37MB/party,
+  4.7s wall warm; auction end-to-end 18–24s including route setup. Before/after transport
+  numbers in Phase 4 + 5g tables.
+- **E (P2P community)**: the HOL-blocking case study generalizes: request/reply application
+  protocols over anonymous routing layers must never block their dispatch loop on nested
+  calls — the failure mode (mutual stall for exactly the retry budget, then burst heal)
+  masquerades as network flakiness. Plus: address-filter interactions with shared-host
+  testbeds; workaround-removal evidence log (5e).
+
 ## Session log
 
 - **2026-07-19** — Plan researched & approved. Verified: fork = v0.5.3 + patches (stale fork tags
@@ -333,3 +410,10 @@ _Measurements and observations accumulate here per route until 1–2 routes are 
   FAIL + key withheld in demo; now verifies against the MPC-input BidIndex snapshot
   (app `85db016`). Re-verified: demo key delivery in 25ms end-to-end; E2E suite 3/3 (332.0s).
   All pushed: fork `0af0ac69`, app `85db016`, refs verified.
+- **2026-07-22** — Phase 5 completed (a–g) + Phase 7. 5a evaluated-not-set; 5b flush at write
+  choke points (`001a84f`); 5c HPKE spike proven (`c852230`); 5d attachment telemetry
+  (`152f887`); 5e verdicts: post-barrier refresh REMOVED (`7be35f8`, suite 284.9s best),
+  `f2d3b461` superseded upstream, reactive refresh + fresh-devnet-per-test KEPT (shared-devnet
+  trial failed hard: conc 720s timeout); 5f deferred (no concurrency gap). Final: happy path
+  **67.2s** (−42% vs 0.5.3), suite **284.9s** (−52%). `UPGRADE-0.5.7-SUMMARY.md` written for
+  user perusal. NOTES.md + memory updated. Remaining: Phase 6 route choice (user decision).
